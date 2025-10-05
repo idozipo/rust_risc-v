@@ -1,1 +1,1 @@
-mod risc_v;
+pub mod risc_v;

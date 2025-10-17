@@ -569,3 +569,98 @@ fn ori_with_all_ones_immediate() {
     // x1 | -1 = -1 (all ones)
     assert_eq!(cpu.reg[2], u32::MAX);
 }
+
+#[test]
+fn xori_instruction_fetch() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // Example instruction: XORI x1, x0, 5
+    let xori_instruction: Word = 0b000000000101_00000_100_00001_0010011; // imm=5, rs1=x0, funct3=100, rd=x1, opcode=0010011
+    mem.store_word(0x0, xori_instruction);
+
+    let instruction: u32 = cpu.fetch_instruction_word(&mem);
+    assert_eq!(instruction, xori_instruction);
+}
+
+#[test]
+fn xori_regular_operation() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // XORI x3, x2, 0xF0F
+    let xori_instruction: Word = 0b111100001111_00010_100_00011_0010011;
+    mem.store_word(0x0, xori_instruction);
+
+    cpu.reg[2] = 0xAAAA_AAAA; // rs1 = 0xAAAA_AAAA
+
+    cpu.execute(&mem);
+
+    // Expected: 0xAAAA_AAAA XOR 0xF0F0 = 0xAAAA_5A5A
+    assert_eq!(cpu.reg[3], 0xAAAA_AAAA ^ 0xFFFF_FF0F);
+}
+
+#[test]
+fn xori_with_zero_register() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // XORI x1, x0, 0xFF (should just set x1 = 0xFF)
+    let xori_instruction: Word = 0b000011111111_00000_100_00001_0010011;
+    mem.store_word(0x0, xori_instruction);
+
+    cpu.execute(&mem);
+
+    assert_eq!(cpu.reg[1], 0xFF);
+}
+
+#[test]
+fn xori_negative_immediate() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // XORI x1, x2, -1 (imm = 0xFFF in 12-bit two's complement)
+    let xori_instruction: Word = 0b111111111111_00010_100_00001_0010011;
+    mem.store_word(0x0, xori_instruction);
+
+    cpu.reg[2] = 0x12345678;
+
+    cpu.execute(&mem);
+
+    // Expected: x1 = x2 XOR 0xFFFF_FFFF = bitwise NOT of x2
+    assert_eq!(cpu.reg[1], !0x12345678);
+}
+
+#[test]
+fn xori_all_ones_register() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // XORI x4, x1, 0xF0
+    let xori_instruction: Word = 0b000011110000_00001_100_00100_0010011;
+    mem.store_word(0x0, xori_instruction);
+
+    cpu.reg[1] = 0xFFFF_FFFF;
+
+    cpu.execute(&mem);
+
+    // Expected: 0xFFFF_FFFF XOR 0x0000_00F0 = 0xFFFF_FF0F
+    assert_eq!(cpu.reg[4], 0xFFFF_FF0F);
+}
+
+#[test]
+fn not_pseudo_instruction() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // NOT x5, x6  ==  XORI x5, x6, -1
+    let not_instruction: Word = 0b111111111111_00110_100_00101_0010011;
+    mem.store_word(0x0, not_instruction);
+
+    cpu.reg[6] = 0xDEADBEEF;
+
+    cpu.execute(&mem);
+
+    // Expected: x5 = ~x6
+    assert_eq!(cpu.reg[5], !0xDEADBEEF);
+}

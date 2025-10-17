@@ -247,6 +247,7 @@ pub enum Instruction {
     STLIU { imm: u32, rs1: usize, rd: usize },
     ANDI { imm: u32, rs1: usize, rd: usize },
     ORI { imm: u32, rs1: usize, rd: usize },
+    XORI { imm: u32, rs1: usize, rd: usize },
     // TODO: implement these as we go along
 }
 
@@ -256,6 +257,7 @@ impl Instruction {
     const SLTIU_FUNCT3: usize = 0b011;
     const ANDI_FUNCT3: usize = 0b111;
     const ORI_FUNCT3: usize = 0b110;
+    const XORI_FUNCT3: usize = 0b100;
 
     const OPIMM_BITS: u32 = 12;
 
@@ -303,6 +305,13 @@ impl Instruction {
                         rs1: rs1,
                         rd: rd,
                     }
+                } else if opcode == OPCODE::OPIMM && funct3 == Instruction::XORI_FUNCT3 {
+                    let xori_imm: u32 = sign_extend_u32(imm, Instruction::OPIMM_BITS) as u32;
+                    Instruction::XORI {
+                        imm: xori_imm,
+                        rs1: rs1,
+                        rd: rd,
+                    }
                 } else {
                     todo!("unrecognized IType instruction")
                 }
@@ -333,8 +342,6 @@ impl RISCV {
         instruction
     }
 
-    pub fn get_funct3() {}
-
     pub fn execute(&mut self, mem: &Memory) {
         let instruction: Word = self.fetch_instruction_word(mem); // fetch the instruction at pc
         let encoding: EncodingVariant = EncodingVariant::get_encoding(instruction);
@@ -356,6 +363,9 @@ impl RISCV {
             }
             Instruction::ORI { imm, rs1, rd } => {
                 self.reg[rd] = self.reg[rs1] | imm;
+            }
+            Instruction::XORI { imm, rs1, rd } => {
+                self.reg[rd] = self.reg[rs1] ^ imm;
             }
         };
     }

@@ -982,3 +982,189 @@ fn srli_does_not_sign_extend() {
     // Logical right shift by 4 = 0x0F000000 (no sign extension)
     assert_eq!(cpu.reg[10], 0x0F000000);
 }
+
+/// Test fetching an SRAI instruction from memory
+#[test]
+fn srai_instruction_fetch() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // Example instruction: SRAI x1, x2, 3
+    // funct7 = 0100000 (SRAI), shamt = 00011, rs1 = 00010, funct3 = 101, rd = 00001, opcode = 0010011
+    let srai_instruction: Word = 0b0100000_00011_00010_101_00001_0010011;
+    mem.store_word(0x0, srai_instruction);
+
+    let instruction: u32 = cpu.fetch_instruction_word(&mem);
+    assert_eq!(instruction, srai_instruction);
+}
+
+/// Basic operation: Shift right arithmetic immediate
+#[test]
+fn srai_basic_operation() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRAI x1, x2, 2  -> x1 = x2 >> 2 (arithmetic)
+    let srai_instruction: Word = 0b0100000_00010_00010_101_00001_0010011;
+    mem.store_word(0x0, srai_instruction);
+
+    cpu.reg[2] = 16; // 0b0001_0000 (positive)
+
+    cpu.execute(&mem);
+
+    // 16 >> 2 = 4
+    assert_eq!(cpu.reg[1], 4);
+}
+
+/// Arithmetic shift should preserve sign bit (negative numbers)
+#[test]
+fn srai_preserves_sign_bit() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRAI x3, x4, 1
+    let srai_instruction: Word = 0b0100000_00001_00100_101_00011_0010011;
+    mem.store_word(0x0, srai_instruction);
+
+    // -8 in 32-bit two's complement = 0xFFFF_FFF8
+    cpu.reg[4] = (-8i32) as u32;
+
+    cpu.execute(&mem);
+
+    // Arithmetic right shift by 1: 0xFFFF_FFFC (still negative)
+    assert_eq!(cpu.reg[3], 0xFFFF_FFFC);
+}
+
+/// Shift right by zero (no change)
+#[test]
+fn srai_with_zero_shift() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRAI x5, x6, 0
+    let srai_instruction: Word = 0b0100000_00000_00110_101_00101_0010011;
+    mem.store_word(0x0, srai_instruction);
+
+    cpu.reg[6] = 0x12345678;
+
+    cpu.execute(&mem);
+
+    // Shift by 0 → unchanged
+    assert_eq!(cpu.reg[5], 0x12345678);
+}
+
+/// Shift by maximum (31 bits)
+#[test]
+fn srai_with_large_shift_amount() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRAI x7, x8, 31
+    let srai_instruction: Word = 0b0100000_11111_01000_101_00111_0010011;
+    mem.store_word(0x0, srai_instruction);
+    mem.store_word(0x4, srai_instruction);
+
+    // Positive number
+    cpu.reg[8] = 0x40000000;
+    cpu.execute(&mem);
+    assert_eq!(cpu.reg[7], 0x0);
+
+    // Negative number
+    cpu.reg[8] = 0x80000000;
+    cpu.execute(&mem);
+    assert_eq!(cpu.reg[7], 0xFFFFFFFF);
+}
+
+/// SRAI should sign-extend properly for small shifts
+#[test]
+fn srai_sign_extension_small_shift() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRAI x9, x10, 3
+    let srai_instruction: Word = 0b0100000_00011_01010_101_01001_0010011;
+    mem.store_word(0x0, srai_instruction);
+
+    // -16 (0xFFFFFFF0)
+    cpu.reg[10] = (-16i32) as u32;
+
+    cpu.execute(&mem);
+
+    // Arithmetic shift right 3: expected -2 (0xFFFFFFFE)
+    assert_eq!(cpu.reg[9], 0xFFFFFFFE);
+}
+
+/// Shifting with all ones register
+#[test]
+fn srai_with_all_ones_register() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRAI x11, x1, 4
+    let srai_instruction: Word = 0b0100000_00100_00001_101_01011_0010011;
+    mem.store_word(0x0, srai_instruction);
+
+    cpu.reg[1] = u32::MAX; // all ones (-1)
+
+    cpu.execute(&mem);
+
+    // Arithmetic right shift keeps -1 (sign bit stays)
+    assert_eq!(cpu.reg[11], u32::MAX);
+}
+
+/// Shifting zero should remain zero
+#[test]
+fn srai_with_reg_0() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRAI x1, x0, 10
+    let srai_instruction: Word = 0b0100000_01010_00000_101_00001_0010011;
+    mem.store_word(0x0, srai_instruction);
+
+    cpu.execute(&mem);
+
+    assert_eq!(cpu.reg[1], 0);
+}
+
+/// Mixed test: positive and negative number comparison
+#[test]
+fn srai_mixed_sign_behavior() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRAI x12, x13, 4
+    let srai_instruction: Word = 0b0100000_00100_01101_101_01100_0010011;
+    mem.store_word(0x0, srai_instruction);
+    mem.store_word(0x4, srai_instruction);
+
+    // Case 1: Positive
+    cpu.reg[13] = 0x0000_F000;
+    cpu.execute(&mem);
+    assert_eq!(cpu.reg[12], 0x00000F00);
+
+    // Case 2: Negative
+    cpu.reg[13] = (-4096i32) as u32; // 0xFFFF_F000
+    cpu.execute(&mem);
+    assert_eq!(cpu.reg[12], 0xFFFF_FF00);
+}
+
+/// SRAI should maintain top bits filled with sign bit when shifting multiple times
+#[test]
+fn srai_multiple_sign_extension_bits() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRAI x14, x15, 8
+    let srai_instruction: Word = 0b0100000_01000_01111_101_01110_0010011;
+    mem.store_word(0x0, srai_instruction);
+
+    // Negative number
+    cpu.reg[15] = 0xFFFF_0000;
+
+    cpu.execute(&mem);
+
+    // Right shift by 8 → should stay negative
+    // Expected: 0xFFFFFF00
+    assert_eq!(cpu.reg[14], 0xFFFFFF00);
+}

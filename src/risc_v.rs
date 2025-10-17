@@ -251,6 +251,7 @@ pub enum Instruction {
     XORI { imm: u32, rs1: usize, rd: usize },
     SLLI { shamt: u32, rs1: usize, rd: usize },
     SRLI { shamt: u32, rs1: usize, rd: usize },
+    SRAI { shamt: u32, rs1: usize, rd: usize },
     // TODO: implement these as we go along
 }
 
@@ -263,6 +264,7 @@ impl Instruction {
     const XORI_FUNCT3: usize = 0b100;
     const SLLI_FUNCT3: usize = 0b001;
     const SRLI_FUNCT3: usize = 0b101;
+    const SRAI_FUNCT3: usize = 0b101;
 
     const OPIMM_BITS: u32 = 12;
 
@@ -326,8 +328,14 @@ impl Instruction {
                 {
                     let shamt: u32 = (imm & 0b11111) as u32; // shift amount is in lower 5 bits
                     Instruction::SRLI { shamt, rs1, rd }
+                } else if opcode == OPCODE::OPIMM
+                    && funct3 == Instruction::SRAI_FUNCT3
+                    && (imm >> 5) == 0b0100000
+                {
+                    let shamt: u32 = (imm & 0b11111) as u32; // shift amount is in lower 5 bits
+                    Instruction::SRAI { shamt, rs1, rd }
                 } else {
-                    todo!("unrecognized IType instruction")
+                    panic!("unrecognized IType instruction")
                 }
             }
             _ => todo!("only IType instructions are implemented so far"),
@@ -386,6 +394,10 @@ impl RISCV {
             }
             Instruction::SRLI { shamt, rs1, rd } => {
                 self.reg[rd] = self.reg[rs1] >> shamt;
+            }
+            Instruction::SRAI { shamt, rs1, rd } => {
+                let rs1_value: i32 = self.reg[rs1] as i32;
+                self.reg[rd] = (rs1_value >> shamt) as u32;
             }
         };
     }

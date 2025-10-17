@@ -1,6 +1,5 @@
 use std::{
-    f32::consts::E,
-    ops::{Deref, Index, IndexMut},
+    ops::{Index, IndexMut},
     usize,
 };
 

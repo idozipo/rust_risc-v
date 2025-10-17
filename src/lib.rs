@@ -1,3 +1,5 @@
 mod risc_v;
+mod utils;
 
-pub use risc_v::{Memory, OPCODE, RISCV, Word};
+pub use risc_v::*;
+pub use utils::*;

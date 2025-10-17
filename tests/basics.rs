@@ -1,12 +1,45 @@
 use rust_risc_v::*;
 
-/// Sets up the cpu and memory to be used by tests
-// fn setup_cpu() -> (RISCV, Memory) {
-//     let cpu: RISCV = RISCV::reset();
-//     let mem: Memory = Memory::new();
+#[test]
+fn sign_extend_0() {
+    let value: usize = 0b0000_0000;
+    let bits: u32 = 8;
+    let extended: i32 = sign_extend_u32(value, bits);
+    assert_eq!(extended, 0);
+}
 
-//     (cpu, mem)
-// }
+#[test]
+fn sign_extend_max_u32() {
+    let value: usize = 0b1111_1111;
+    let bits: u32 = 8;
+    let extended: i32 = sign_extend_u32(value, bits);
+    assert_eq!(extended, -1);
+}
+
+#[test]
+fn sign_extend_32_bits_positive() {
+    let value: usize = 0b0111_1111_1111_1111_1111_1111_1111_1111;
+    let bits: u32 = 32;
+    let extended: i32 = sign_extend_u32(value, bits);
+    assert_eq!(extended, 2147483647);
+}
+
+#[test]
+fn sign_extend_32_bits_negative() {
+    let value: usize = 0b1111_1111_1111_1111_1111_1111_1111_1111;
+    let bits: u32 = 32;
+    let extended: i32 = sign_extend_u32(value, bits);
+    assert_eq!(extended, -1);
+}
+
+#[test]
+#[should_panic(expected = "bits must be less than or equal to 32")]
+fn sign_extend_more_than_32_bits() {
+    let value: usize = 0b0000_0000_0000_0000_0000_0000_0000_0000;
+    let bits: u32 = 40; // More than 32 bits
+    let extended: i32 = sign_extend_u32(value, bits);
+    assert_eq!(extended, 0); // Should still return 0
+}
 
 #[test]
 fn opcode_values() {

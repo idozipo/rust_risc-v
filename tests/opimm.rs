@@ -822,3 +822,163 @@ fn slli_mid_shift_example() {
     // 0xAB << 8 = 0xAB00
     assert_eq!(cpu.reg[10], 0x0000_AB00);
 }
+
+/// Test fetching an SRLI instruction from memory
+#[test]
+fn srli_instruction_fetch() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // Example instruction: SRLI x1, x2, 3
+    // funct7 = 0000000 (SRLI), shamt = 00011, rs1 = 00010, funct3 = 101, rd = 00001, opcode = 0010011
+    let srli_instruction: Word = 0b0000000_00011_00010_101_00001_0010011;
+    mem.store_word(0x0, srli_instruction);
+
+    let instruction: u32 = cpu.fetch_instruction_word(&mem);
+    assert_eq!(instruction, srli_instruction);
+}
+
+/// Basic operation: Shift right logical immediate
+#[test]
+fn srli_basic_operation() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRLI x1, x2, 2  -> x1 = x2 >> 2 (logical)
+    let srli_instruction: Word = 0b0000000_00010_00010_101_00001_0010011;
+    mem.store_word(0x0, srli_instruction);
+
+    cpu.reg[2] = 16; // 0b10000
+
+    cpu.execute(&mem);
+
+    // 16 >> 2 = 4
+    assert_eq!(cpu.reg[1], 4);
+}
+
+/// Shift right by zero (no change)
+#[test]
+fn srli_with_zero_shift() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRLI x3, x4, 0
+    let srli_instruction: Word = 0b0000000_00000_00100_101_00011_0010011;
+    mem.store_word(0x0, srli_instruction);
+
+    cpu.reg[4] = 0x12345678;
+
+    cpu.execute(&mem);
+
+    // No shift → unchanged
+    assert_eq!(cpu.reg[3], 0x12345678);
+}
+
+/// Shift right by maximum amount (31)
+#[test]
+fn srli_with_large_shift_amount() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRLI x5, x6, 31
+    let srli_instruction: Word = 0b0000000_11111_00110_101_00101_0010011;
+    mem.store_word(0x0, srli_instruction);
+
+    cpu.reg[6] = 0x80000000;
+
+    cpu.execute(&mem);
+
+    // Logical right shift by 31: only LSB remains (1)
+    assert_eq!(cpu.reg[5], 1);
+}
+
+/// Shift right logical should NOT sign-extend
+#[test]
+fn srli_logical_shift_behavior() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRLI x2, x3, 1
+    let srli_instruction: Word = 0b0000000_00001_00011_101_00010_0010011;
+    mem.store_word(0x0, srli_instruction);
+
+    // x3 = 0x80000000 (MSB set)
+    cpu.reg[3] = 0x80000000;
+
+    cpu.execute(&mem);
+
+    // Logical shift right → introduces 0s on the left
+    // 0x80000000 >> 1 = 0x40000000
+    assert_eq!(cpu.reg[2], 0x40000000);
+}
+
+/// Shift with all-ones register
+#[test]
+fn srli_with_all_ones_register() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRLI x3, x1, 4
+    let srli_instruction: Word = 0b0000000_00100_00001_101_00011_0010011;
+    mem.store_word(0x0, srli_instruction);
+
+    cpu.reg[1] = u32::MAX; // 0xFFFF_FFFF
+
+    cpu.execute(&mem);
+
+    // 0xFFFF_FFFF >> 4 = 0x0FFF_FFFF
+    assert_eq!(cpu.reg[3], 0x0FFF_FFFF);
+}
+
+/// Shifting zero (always zero)
+#[test]
+fn srli_with_reg_0() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRLI x1, x0, 10
+    let srli_instruction: Word = 0b0000000_01010_00000_101_00001_0010011;
+    mem.store_word(0x0, srli_instruction);
+
+    cpu.execute(&mem);
+
+    // 0 >> anything = 0
+    assert_eq!(cpu.reg[1], 0);
+}
+
+/// Shift right logical with a random value and small shift
+#[test]
+fn srli_small_shift_behavior() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRLI x7, x8, 3
+    let srli_instruction: Word = 0b0000000_00011_01000_101_00111_0010011;
+    mem.store_word(0x0, srli_instruction);
+
+    cpu.reg[8] = 0b10100000; // 0xA0
+
+    cpu.execute(&mem);
+
+    // 0b10100000 >> 3 = 0b00010100 (0x14)
+    assert_eq!(cpu.reg[7], 0x14);
+}
+
+/// SRLI should zero-fill even if input had sign bit set
+#[test]
+fn srli_does_not_sign_extend() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRLI x10, x11, 4
+    let srli_instruction: Word = 0b0000000_00100_01011_101_01010_0010011;
+    mem.store_word(0x0, srli_instruction);
+
+    // x11 = 0xF0000000 (high nibble set)
+    cpu.reg[11] = 0xF0000000;
+
+    cpu.execute(&mem);
+
+    // Logical right shift by 4 = 0x0F000000 (no sign extension)
+    assert_eq!(cpu.reg[10], 0x0F000000);
+}

@@ -250,6 +250,7 @@ pub enum Instruction {
     ORI { imm: u32, rs1: usize, rd: usize },
     XORI { imm: u32, rs1: usize, rd: usize },
     SLLI { shamt: u32, rs1: usize, rd: usize },
+    SRLI { shamt: u32, rs1: usize, rd: usize },
     // TODO: implement these as we go along
 }
 
@@ -261,6 +262,7 @@ impl Instruction {
     const ORI_FUNCT3: usize = 0b110;
     const XORI_FUNCT3: usize = 0b100;
     const SLLI_FUNCT3: usize = 0b001;
+    const SRLI_FUNCT3: usize = 0b101;
 
     const OPIMM_BITS: u32 = 12;
 
@@ -318,6 +320,12 @@ impl Instruction {
                 } else if opcode == OPCODE::OPIMM && funct3 == Instruction::SLLI_FUNCT3 {
                     let shamt: u32 = (imm & 0b11111) as u32; // shift amount is in lower 5 bits
                     Instruction::SLLI { shamt, rs1, rd }
+                } else if opcode == OPCODE::OPIMM
+                    && funct3 == Instruction::SRLI_FUNCT3
+                    && (imm >> 5) == 0
+                {
+                    let shamt: u32 = (imm & 0b11111) as u32; // shift amount is in lower 5 bits
+                    Instruction::SRLI { shamt, rs1, rd }
                 } else {
                     todo!("unrecognized IType instruction")
                 }
@@ -375,6 +383,9 @@ impl RISCV {
             }
             Instruction::SLLI { shamt, rs1, rd } => {
                 self.reg[rd] = self.reg[rs1] << shamt;
+            }
+            Instruction::SRLI { shamt, rs1, rd } => {
+                self.reg[rd] = self.reg[rs1] >> shamt;
             }
         };
     }

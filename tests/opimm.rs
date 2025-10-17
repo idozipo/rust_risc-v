@@ -456,3 +456,116 @@ fn andi_with_all_ones_immediate() {
     // x1 & -1 = x1
     assert_eq!(cpu.reg[2], 0b101010);
 }
+
+#[test]
+fn ori_instruction_fetch() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // Example: ORI x1, x0, 0b1010 (rd=x1, rs1=x0, imm=10)
+    let ori_instruction: Word = 0b000000001010_00000_110_00001_0010011;
+    mem.store_word(0x0, ori_instruction);
+
+    let instruction: u32 = cpu.fetch_instruction_word(&mem);
+    assert_eq!(instruction, ori_instruction);
+}
+
+#[test]
+fn ori_basic_operation() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // ORI x1, x2, 0b1100
+    let ori_instruction: Word = 0b000000001100_00010_110_00001_0010011;
+    mem.store_word(0x0, ori_instruction);
+
+    cpu.reg[2] = 0b1010; // 10 decimal
+
+    cpu.execute(&mem);
+
+    // 0b1010 | 0b1100 = 0b1110 (14)
+    assert_eq!(cpu.reg[1], 0b1110);
+}
+
+#[test]
+fn ori_with_reg_0() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // ORI x1, x0, 0b1111
+    let ori_instruction: Word = 0b000000001111_00000_110_00001_0010011;
+    mem.store_word(0x0, ori_instruction);
+
+    cpu.execute(&mem);
+
+    // x0 = 0, so result = 0 | imm = 0b1111
+    assert_eq!(cpu.reg[1], 0b1111);
+}
+
+#[test]
+fn ori_with_negative_immediate() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // ORI x1, x2, -4 (0xFFF...C 12-bit sign-extended)
+    let ori_instruction: Word = 0b111111111100_00010_110_00001_0010011;
+    mem.store_word(0x0, ori_instruction);
+
+    cpu.reg[2] = 0b1010; // 10 decimal
+
+    cpu.execute(&mem);
+
+    // -4 = 0xFFFF_FFFC, 0b1010 | 0xFFFF_FFFC = 0xFFFF_FFFE
+    assert_eq!(cpu.reg[1], 0xFFFF_FFFE);
+}
+
+#[test]
+fn ori_with_all_ones_register() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // ORI x3, x1, 0b1010
+    let ori_instruction: Word = 0b000000001010_00001_110_00011_0010011;
+    mem.store_word(0x0, ori_instruction);
+
+    cpu.reg[1] = u32::MAX; // all ones
+
+    cpu.execute(&mem);
+
+    // all ones | 0b1010 = all ones
+    assert_eq!(cpu.reg[3], u32::MAX);
+}
+
+#[test]
+fn ori_with_zero_immediate() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // ORI x2, x1, 0
+    let ori_instruction: Word = 0b000000000000_00001_110_00010_0010011;
+    mem.store_word(0x0, ori_instruction);
+
+    cpu.reg[1] = 0b1101;
+
+    cpu.execute(&mem);
+
+    // x1 | 0 = x1
+    assert_eq!(cpu.reg[2], 0b1101);
+}
+
+#[test]
+fn ori_with_all_ones_immediate() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // ORI x2, x1, -1 (0xFFF sign-extended = 0xFFFF_FFFF)
+    let ori_instruction: Word = 0b111111111111_00001_110_00010_0010011;
+    mem.store_word(0x0, ori_instruction);
+
+    cpu.reg[1] = 0b101010;
+
+    cpu.execute(&mem);
+
+    // x1 | -1 = -1 (all ones)
+    assert_eq!(cpu.reg[2], u32::MAX);
+}

@@ -256,6 +256,9 @@ pub enum Instruction {
     // LUI \ AUIPC
     LUI { imm: u32, rd: usize },
     AUIPC { imm: u32, rd: usize },
+    // OPRR
+    ADD { rs1: usize, rs2: usize, rd: usize },
+    SUB { rs1: usize, rs2: usize, rd: usize },
     // TODO: implement these as we go along
 }
 
@@ -269,6 +272,11 @@ impl Instruction {
     const SLLI_FUNCT3: usize = 0b001;
     const SRLI_FUNCT3: usize = 0b101;
     const SRAI_FUNCT3: usize = 0b101;
+
+    const ADD_FUNCT3: usize = 0b000;
+    const ADD_FUNCT7: usize = 0b0000000;
+    const SUB_FUNCT3: usize = 0b000;
+    const SUB_FUNCT7: usize = 0b0100000;
 
     const OPIMM_BITS: u32 = 12;
 
@@ -357,6 +365,28 @@ impl Instruction {
                     panic!("unrecognized UType instruction")
                 }
             }
+            EncodingVariant::RType {
+                funct7,
+                rs2,
+                rs1,
+                funct3,
+                rd,
+                opcode,
+            } => {
+                if opcode == OPCODE::OPRR
+                    && funct3 == Instruction::ADD_FUNCT3
+                    && funct7 == Instruction::ADD_FUNCT7
+                {
+                    Instruction::ADD { rs1, rs2, rd }
+                } else if opcode == OPCODE::OPRR
+                    && funct3 == Instruction::SUB_FUNCT3
+                    && funct7 == Instruction::SUB_FUNCT7
+                {
+                    Instruction::SUB { rs1, rs2, rd }
+                } else {
+                    todo!()
+                }
+            }
             _ => todo!("only IType instructions are implemented so far"),
         }
     }
@@ -438,6 +468,16 @@ impl RISCV {
                 if rd != 0 {
                     // x0 is hardwired to 0
                     self.reg[rd] = self.pc.wrapping_add(imm);
+                }
+            }
+            Instruction::ADD { rs1, rs2, rd } => {
+                if rd != 0 {
+                    self.reg[rd] = self.reg[rs1].wrapping_add(self.reg[rs2]);
+                }
+            }
+            Instruction::SUB { rs1, rs2, rd } => {
+                if rd != 0 {
+                    self.reg[rd] = self.reg[rs1].wrapping_sub(self.reg[rs2]);
                 }
             }
         };

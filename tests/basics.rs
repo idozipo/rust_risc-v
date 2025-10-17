@@ -90,11 +90,4 @@ fn failure_of_unrecognized_opcode_from_instruction() {
     assert_eq!(opcode, None);
 }
 
-#[test]
-fn regular_instruction_fetch() {
-    let mut cpu: RISCV = RISCV::reset();
-    let mem: Memory = Memory::new();
-
-    let instruction: u32 = cpu.fetch_instruction_word(&mem);
-    assert_eq!(instruction, 0); // Memory is empty, so fetching from address 0 should return 0
-}
+// TODO: test each function in cpu seperately

@@ -31,6 +31,7 @@ impl Memory {
 
     pub fn store_word(&mut self, addr: usize, value: Word) {
         assert!(addr % 4 == 0); // the address needs to be aligned to 32 bits
+        assert!(addr <= MEM_SIZE - 4, "Tried accessing memory out of bounds"); // ensure we don't go out of bounds
 
         let bytes: [Byte; 4] = value.to_le_bytes(); // convert the word to bytes (little-endian)
         self.mem[addr] = bytes[0];
@@ -254,6 +255,7 @@ pub enum Instruction {
     SRAI { shamt: u32, rs1: usize, rd: usize },
     // LUI \ AUIPC
     LUI { imm: u32, rd: usize },
+    AUIPC { imm: u32, rd: usize },
     // TODO: implement these as we go along
 }
 
@@ -348,6 +350,9 @@ impl Instruction {
                 if opcode == OPCODE::LUI {
                     let imm: u32 = (imm_31_12 as u32) << 12;
                     Instruction::LUI { imm, rd }
+                } else if opcode == OPCODE::AUIPC {
+                    let imm: u32 = (imm_31_12 as u32) << 12;
+                    Instruction::AUIPC { imm, rd }
                 } else {
                     panic!("unrecognized UType instruction")
                 }
@@ -360,6 +365,7 @@ impl Instruction {
 pub struct RISCV {
     pub reg: [Word; XLEN], // 32 registers which are 32 bits wide
     pub pc: Word,          // Program counter (holds current instruction address)
+    current_instruction: Word,
 }
 
 impl RISCV {
@@ -367,20 +373,29 @@ impl RISCV {
         RISCV {
             reg: [0; XLEN], // Resets registers to 0x00000
             pc: 0,          // Start executing code from 0x00000
+            current_instruction: 0,
         }
     }
 
-    /// Fetch the full instruction word that pc is pointing to (incrementing it)
-    pub fn fetch_instruction_word(&mut self, mem: &Memory) -> Word {
-        let instruction: Word = mem.fetch_word(self.pc as usize);
-        self.pc += 4; // increment the pc by a word 
-
-        instruction
+    pub fn clock_cycle(&mut self, mem: &Memory) {
+        self.fetch_instruction(mem);
+        self.execute();
+        self.increment_pc();
     }
 
-    pub fn execute(&mut self, mem: &Memory) {
-        let instruction: Word = self.fetch_instruction_word(mem); // fetch the instruction at pc
-        let encoding: EncodingVariant = EncodingVariant::get_encoding(instruction);
+    /// Fetch the full instruction word that pc is pointing to (incrementing it)
+    pub fn fetch_instruction(&mut self, mem: &Memory) -> Word {
+        self.current_instruction = mem.fetch_word(self.pc as usize);
+
+        self.current_instruction
+    }
+
+    pub fn increment_pc(&mut self) {
+        self.pc = self.pc.wrapping_add(4); // increment pc by 4 (size of instruction word)
+    }
+
+    pub fn execute(&mut self) {
+        let encoding: EncodingVariant = EncodingVariant::get_encoding(self.current_instruction);
         let parsed_instruction: Instruction = Instruction::parse_instruction(encoding);
         match parsed_instruction {
             Instruction::ADDI { imm, rs1, rd } => {
@@ -417,6 +432,12 @@ impl RISCV {
                 if rd != 0 {
                     // x0 is hardwired to 0
                     self.reg[rd] = imm;
+                }
+            }
+            Instruction::AUIPC { imm, rd } => {
+                if rd != 0 {
+                    // x0 is hardwired to 0
+                    self.reg[rd] = self.pc.wrapping_add(imm);
                 }
             }
         };

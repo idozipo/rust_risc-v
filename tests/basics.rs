@@ -1,3 +1,5 @@
+use std::u32;
+
 use rust_risc_v::*;
 
 #[test]
@@ -108,4 +110,90 @@ fn addi_instruction_fetch() {
 
     let instruction: u32 = cpu.fetch_instruction_word(&mem);
     assert_eq!(instruction, addi_instruction); // The fetched instruction should match the stored one
+}
+
+#[test]
+fn addi_regular_operation() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // Example instruction: ADDI x1, x2, 2
+    let addi_instruction: Word = 0b0000000_00010_00010_000_00001_0010011;
+    mem.store_word(0x0, addi_instruction); // Store the instruction at address 0
+
+    // set register x2 to 8
+    cpu.reg[2] = 8;
+
+    // Execute the instruction at 0x0
+    cpu.execute(&mem);
+
+    // After execution, register x1 should contain 10
+    assert_eq!(cpu.reg[1], 10);
+}
+
+#[test]
+fn addi_with_reg_0() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // Example instruction: ADDI x1, x0, 3 (like MOV x1, 3)
+    let addi_instruction: Word = 0b0000000_00011_00000_000_00001_0010011;
+    mem.store_word(0x0, addi_instruction); // Store the instruction at address 0
+
+    // Execute the instruction at 0x0
+    cpu.execute(&mem);
+
+    // After execution, register x1 should contain 3
+    assert_eq!(cpu.reg[1], 3);
+}
+
+#[test]
+fn addi_with_all_zeros_reg_0() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // Example instruction: ADDI x31, x0, 0 (like MOV x31, 0)
+    let addi_instruction: Word = 0b0000000_00000_00000_000_11111_0010011;
+    mem.store_word(0x0, addi_instruction); // Store the instruction at address 0
+
+    // Execute the instruction at 0x0
+    cpu.execute(&mem);
+
+    // After execution, register x31 should contain 0
+    assert_eq!(cpu.reg[1], 0);
+}
+
+#[test]
+fn addi_with_min_neg_imm_value() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // Example instruction: ADDI x2, x0, -2048
+    let addi_instruction: Word = 0b1000000_00000_00000_000_00010_0010011;
+    mem.store_word(0x0, addi_instruction); // Store the instruction at address 0
+
+    // Execute the instruction at 0x0
+    cpu.execute(&mem);
+
+    // After execution, register x2 should contain -2048 (4294965248 as u32)
+    assert_eq!(cpu.reg[2], 4294965248);
+}
+
+#[test]
+fn addi_with_all_ones_in_reg() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // Example instruction: ADDI x2, x1, 2
+    let addi_instruction: Word = 0b0000000_00010_00001_000_00010_0010011;
+    mem.store_word(0x0, addi_instruction); // Store the instruction at address 0
+
+    // set register x1 to all ones (u32::MAX)
+    cpu.reg[1] = u32::MAX;
+
+    // Execute the instruction at 0x0
+    cpu.execute(&mem);
+
+    // After execution, register x2 should contain 1 (wrapping around)
+    assert_eq!(cpu.reg[2], 1);
 }

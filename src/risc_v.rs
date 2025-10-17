@@ -3,6 +3,8 @@ use std::{
     usize,
 };
 
+use crate::sign_extend_u32;
+
 pub type Byte = u8; // Represents a byte in memory
 pub type HalfWord = u16; // Represents 2 bytes in memory
 pub type Word = u32; // Represents 4 bytes in memory (one instruction)
@@ -257,12 +259,14 @@ impl EncodingVariant {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Instruction {
-    ADDI { imm: usize, rs1: usize, rd: usize },
+    ADDI { imm: i32, rs1: usize, rd: usize },
     // TODO: implement these as we go along
 }
 
 impl Instruction {
     const ADDI_FUNCT3: usize = 0b000;
+
+    const ADDI_IMM_BITS: u32 = 12;
 
     pub fn parse_instruction(encoding: EncodingVariant) -> Instruction {
         match encoding {
@@ -274,7 +278,12 @@ impl Instruction {
                 opcode,
             } => {
                 if opcode == OPCODE::OPIMM && funct3 == Instruction::ADDI_FUNCT3 {
-                    Instruction::ADDI { imm, rs1, rd }
+                    let addi_imm: i32 = sign_extend_u32(imm, Instruction::ADDI_IMM_BITS);
+                    Instruction::ADDI {
+                        imm: addi_imm,
+                        rs1: rs1,
+                        rd: rd,
+                    }
                 } else {
                     todo!()
                 }

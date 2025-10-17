@@ -261,12 +261,14 @@ impl EncodingVariant {
 pub enum Instruction {
     ADDI { imm: i32, rs1: usize, rd: usize },
     SLTI { imm: i32, rs1: usize, rd: usize },
+    STLIU { imm: u32, rs1: usize, rd: usize },
     // TODO: implement these as we go along
 }
 
 impl Instruction {
     const ADDI_FUNCT3: usize = 0b000;
     const SLTI_FUNCT3: usize = 0b010;
+    const SLTIU_FUNCT3: usize = 0b011;
 
     const OPIMM_BITS: u32 = 12;
 
@@ -290,6 +292,13 @@ impl Instruction {
                     let slti_imm: i32 = sign_extend_u32(imm, Instruction::OPIMM_BITS);
                     Instruction::SLTI {
                         imm: slti_imm,
+                        rs1: rs1,
+                        rd: rd,
+                    }
+                } else if opcode == OPCODE::OPIMM && funct3 == Instruction::SLTIU_FUNCT3 {
+                    let sltiu_imm: u32 = sign_extend_u32(imm, Instruction::OPIMM_BITS) as u32;
+                    Instruction::STLIU {
+                        imm: sltiu_imm,
                         rs1: rs1,
                         rd: rd,
                     }
@@ -336,6 +345,10 @@ impl RISCV {
             Instruction::SLTI { imm, rs1, rd } => {
                 let rs1_value: i32 = self.reg[rs1] as i32;
                 self.reg[rd] = if rs1_value < imm { 1 } else { 0 };
+            }
+            Instruction::STLIU { imm, rs1, rd } => {
+                let rs1_value: u32 = self.reg[rs1];
+                self.reg[rd] = if rs1_value < imm { 1 } else { 0 }
             }
         };
     }

@@ -313,3 +313,132 @@ fn slti_with_same_value_as_immediate() {
     // 5 < 5 → false
     assert_eq!(cpu.reg[2], 0);
 }
+
+#[test]
+fn sltiu_instruction_fetch() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // Example instruction: SLTIU x1, x0, 10 (opcode 0010011, funct3 = 011)
+    // imm = 10, rs1 = 0, funct3 = 011, rd = 1, opcode = 0010011
+    let sltiu_instruction: Word = 0b000000001010_00000_011_00001_0010011;
+    mem.store_word(0x0, sltiu_instruction);
+
+    let instruction: u32 = cpu.fetch_instruction_word(&mem);
+    assert_eq!(instruction, sltiu_instruction);
+}
+
+#[test]
+fn sltiu_regular_less_than_unsigned() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLTIU x1, x2, 10
+    let sltiu_instruction: Word = 0b000000001010_00010_011_00001_0010011;
+    mem.store_word(0x0, sltiu_instruction);
+
+    cpu.reg[2] = 5; // 5 < 10 (unsigned)
+
+    cpu.execute(&mem);
+
+    assert_eq!(cpu.reg[1], 1);
+}
+
+#[test]
+fn sltiu_regular_not_less_than_unsigned() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLTIU x1, x2, 10
+    let sltiu_instruction: Word = 0b000000001010_00010_011_00001_0010011;
+    mem.store_word(0x0, sltiu_instruction);
+
+    cpu.reg[2] = 20; // 20 >= 10
+
+    cpu.execute(&mem);
+
+    assert_eq!(cpu.reg[1], 0);
+}
+
+#[test]
+fn sltiu_with_negative_register_value_interpreted_unsigned() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLTIU x3, x4, 10
+    let sltiu_instruction: Word = 0b000000001010_00100_011_00011_0010011;
+    mem.store_word(0x0, sltiu_instruction);
+
+    // x4 = -1 signed, which is 0xFFFF_FFFF unsigned (large number)
+    cpu.reg[4] = (-1i32) as u32;
+
+    cpu.execute(&mem);
+
+    // As unsigned: 0xFFFF_FFFF > 10 → false
+    assert_eq!(cpu.reg[3], 0);
+}
+
+#[test]
+fn sltiu_with_reg_0() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLTIU x1, x0, 5 → compare 0 < 5 (unsigned) → true
+    let sltiu_instruction: Word = 0b000000000101_00000_011_00001_0010011;
+    mem.store_word(0x0, sltiu_instruction);
+
+    cpu.execute(&mem);
+
+    assert_eq!(cpu.reg[1], 1);
+}
+
+#[test]
+fn sltiu_with_equal_value() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLTIU x2, x3, 255
+    let sltiu_instruction: Word = 0b000011111111_00011_011_00010_0010011;
+    mem.store_word(0x0, sltiu_instruction);
+
+    cpu.reg[3] = 255;
+
+    cpu.execute(&mem);
+
+    // 255 < 255 (unsigned) → false
+    assert_eq!(cpu.reg[2], 0);
+}
+
+#[test]
+fn sltiu_with_large_unsigned_comparison() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLTIU x5, x6, 0xFFF
+    let sltiu_instruction: Word = 0b111111111111_00110_011_00101_0010011;
+    mem.store_word(0x0, sltiu_instruction);
+
+    // x6 = 0xFFFF_FFFE
+    cpu.reg[6] = 0xFFFF_FFFE;
+
+    cpu.execute(&mem);
+
+    // unsigned: 0xFFFF_FFFE < 0xFFFF_FFFF → true
+    assert_eq!(cpu.reg[5], 1);
+}
+
+#[test]
+fn sltiu_with_small_unsigned_register_value() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLTIU x5, x6, 0xFFF
+    let sltiu_instruction: Word = 0b111111111111_00110_011_00101_0010011;
+    mem.store_word(0x0, sltiu_instruction);
+
+    cpu.reg[6] = 100;
+
+    cpu.execute(&mem);
+
+    assert_eq!(cpu.reg[5], 1);
+}

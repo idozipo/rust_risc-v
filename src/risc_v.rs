@@ -252,6 +252,8 @@ pub enum Instruction {
     SLLI { shamt: u32, rs1: usize, rd: usize },
     SRLI { shamt: u32, rs1: usize, rd: usize },
     SRAI { shamt: u32, rs1: usize, rd: usize },
+    // LUI \ AUIPC
+    LUI { imm: u32, rd: usize },
     // TODO: implement these as we go along
 }
 
@@ -338,6 +340,18 @@ impl Instruction {
                     panic!("unrecognized IType instruction")
                 }
             }
+            EncodingVariant::UType {
+                imm_31_12,
+                rd,
+                opcode,
+            } => {
+                if opcode == OPCODE::LUI {
+                    let imm: u32 = (imm_31_12 as u32) << 12;
+                    Instruction::LUI { imm, rd }
+                } else {
+                    panic!("unrecognized UType instruction")
+                }
+            }
             _ => todo!("only IType instructions are implemented so far"),
         }
     }
@@ -398,6 +412,12 @@ impl RISCV {
             Instruction::SRAI { shamt, rs1, rd } => {
                 let rs1_value: i32 = self.reg[rs1] as i32;
                 self.reg[rd] = (rs1_value >> shamt) as u32;
+            }
+            Instruction::LUI { imm, rd } => {
+                if rd != 0 {
+                    // x0 is hardwired to 0
+                    self.reg[rd] = imm;
+                }
             }
         };
     }

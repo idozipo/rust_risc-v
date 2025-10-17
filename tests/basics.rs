@@ -197,3 +197,119 @@ fn addi_with_all_ones_in_reg() {
     // After execution, register x2 should contain 1 (wrapping around)
     assert_eq!(cpu.reg[2], 1);
 }
+
+#[test]
+fn slti_instruction_fetch() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // Example instruction: SLTI x1, x0, 10 (opcode for OPIMM is 0b0010011, funct3 = 010)
+    // Binary fields: imm=000000001010, rs1=00000, funct3=010, rd=00001, opcode=0010011
+    let slti_instruction: Word = 0b000000001010_00000_010_00001_0010011;
+    mem.store_word(0x0, slti_instruction);
+
+    let instruction: u32 = cpu.fetch_instruction_word(&mem);
+    assert_eq!(instruction, slti_instruction);
+}
+
+#[test]
+fn slti_regular_less_than() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLTI x1, x2, 10  -> if (x2 < 10) then x1 = 1 else x1 = 0
+    let slti_instruction: Word = 0b000000001010_00010_010_00001_0010011;
+    mem.store_word(0x0, slti_instruction);
+
+    cpu.reg[2] = 5; // x2 = 5 < 10
+
+    cpu.execute(&mem);
+
+    assert_eq!(cpu.reg[1], 1); // should set
+}
+
+#[test]
+fn slti_regular_not_less_than() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLTI x1, x2, 10
+    let slti_instruction: Word = 0b000000001010_00010_010_00001_0010011;
+    mem.store_word(0x0, slti_instruction);
+
+    cpu.reg[2] = 20; // x2 = 20 >= 10
+
+    cpu.execute(&mem);
+
+    assert_eq!(cpu.reg[1], 0);
+}
+
+#[test]
+fn slti_with_negative_immediate() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLTI x3, x4, -1 (imm=0xFFF, 12-bit two’s complement)
+    let slti_instruction: Word = 0b111111111111_00100_010_00011_0010011;
+    mem.store_word(0x0, slti_instruction);
+    mem.store_word(0x4, slti_instruction);
+
+    cpu.reg[4] = 0; // 0 < -1 ? false
+
+    cpu.execute(&mem);
+    assert_eq!(cpu.reg[3], 0);
+
+    // Try another case: x4 = -2 (signed)
+    cpu.reg[4] = (-2i32) as u32;
+    cpu.execute(&mem);
+    assert_eq!(cpu.reg[3], 1);
+}
+
+#[test]
+fn slti_with_reg_0() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLTI x1, x0, 5 → compare 0 < 5 → true → x1 = 1
+    let slti_instruction: Word = 0b000000000101_00000_010_00001_0010011;
+    mem.store_word(0x0, slti_instruction);
+
+    cpu.execute(&mem);
+
+    assert_eq!(cpu.reg[1], 1);
+}
+
+#[test]
+fn slti_with_negative_register_value() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLTI x5, x6, 1
+    let slti_instruction: Word = 0b000000000001_00110_010_00101_0010011;
+    mem.store_word(0x0, slti_instruction);
+
+    // x6 = -10 (signed)
+    cpu.reg[6] = (-10i32) as u32;
+
+    cpu.execute(&mem);
+
+    // -10 < 1 → true
+    assert_eq!(cpu.reg[5], 1);
+}
+
+#[test]
+fn slti_with_same_value_as_immediate() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLTI x2, x3, 5
+    let slti_instruction: Word = 0b000000000101_00011_010_00010_0010011;
+    mem.store_word(0x0, slti_instruction);
+
+    cpu.reg[3] = 5;
+
+    cpu.execute(&mem);
+
+    // 5 < 5 → false
+    assert_eq!(cpu.reg[2], 0);
+}

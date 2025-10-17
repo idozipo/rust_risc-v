@@ -260,13 +260,15 @@ impl EncodingVariant {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Instruction {
     ADDI { imm: i32, rs1: usize, rd: usize },
+    SLTI { imm: i32, rs1: usize, rd: usize },
     // TODO: implement these as we go along
 }
 
 impl Instruction {
     const ADDI_FUNCT3: usize = 0b000;
+    const SLTI_FUNCT3: usize = 0b010;
 
-    const ADDI_IMM_BITS: u32 = 12;
+    const OPIMM_BITS: u32 = 12;
 
     pub fn parse_instruction(encoding: EncodingVariant) -> Instruction {
         match encoding {
@@ -278,9 +280,16 @@ impl Instruction {
                 opcode,
             } => {
                 if opcode == OPCODE::OPIMM && funct3 == Instruction::ADDI_FUNCT3 {
-                    let addi_imm: i32 = sign_extend_u32(imm, Instruction::ADDI_IMM_BITS);
+                    let addi_imm: i32 = sign_extend_u32(imm, Instruction::OPIMM_BITS);
                     Instruction::ADDI {
                         imm: addi_imm,
+                        rs1: rs1,
+                        rd: rd,
+                    }
+                } else if opcode == OPCODE::OPIMM && funct3 == Instruction::SLTI_FUNCT3 {
+                    let slti_imm: i32 = sign_extend_u32(imm, Instruction::OPIMM_BITS);
+                    Instruction::SLTI {
+                        imm: slti_imm,
                         rs1: rs1,
                         rd: rd,
                     }
@@ -323,6 +332,10 @@ impl RISCV {
         match parsed_instruction {
             Instruction::ADDI { imm, rs1, rd } => {
                 self.reg[rd] = self.reg[rs1].wrapping_add(imm as u32);
+            }
+            Instruction::SLTI { imm, rs1, rd } => {
+                let rs1_value: i32 = self.reg[rs1] as i32;
+                self.reg[rd] = if rs1_value < imm { 1 } else { 0 };
             }
         };
     }

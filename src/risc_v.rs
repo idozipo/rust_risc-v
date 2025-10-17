@@ -71,23 +71,6 @@ pub enum OPCODE {
 }
 
 impl OPCODE {
-    // pub fn encoding(&self) -> EncodingVariant {
-    //     match self {
-    //         OPCODE::OPIMM => EncodingVariant::IType,
-    //         OPCODE::LUI => EncodingVariant::UType,
-    //         OPCODE::AUIPC => EncodingVariant::UType,
-    //         OPCODE::OPRR => EncodingVariant::RType,
-    //         OPCODE::JAL => EncodingVariant::JType,
-    //         OPCODE::JALR => EncodingVariant::IType,
-    //         OPCODE::BRANCH => EncodingVariant::BType,
-    //         OPCODE::LOAD => EncodingVariant::IType,
-    //         OPCODE::STORE => EncodingVariant::SType,
-    //         // TODO: handle these properly
-    //         OPCODE::FENCE => EncodingVariant::IType, // technically I-type
-    //         OPCODE::SYSTEM => EncodingVariant::IType, // technically I-type
-    //     }
-    // }
-
     pub fn value(&self) -> usize {
         match self {
             OPCODE::OPIMM => 0b0010011,
@@ -262,6 +245,7 @@ pub enum Instruction {
     ADDI { imm: i32, rs1: usize, rd: usize },
     SLTI { imm: i32, rs1: usize, rd: usize },
     STLIU { imm: u32, rs1: usize, rd: usize },
+    ANDI { imm: u32, rs1: usize, rd: usize },
     // TODO: implement these as we go along
 }
 
@@ -269,6 +253,7 @@ impl Instruction {
     const ADDI_FUNCT3: usize = 0b000;
     const SLTI_FUNCT3: usize = 0b010;
     const SLTIU_FUNCT3: usize = 0b011;
+    const ANDI_FUNCT3: usize = 0b111;
 
     const OPIMM_BITS: u32 = 12;
 
@@ -302,11 +287,18 @@ impl Instruction {
                         rs1: rs1,
                         rd: rd,
                     }
+                } else if opcode == OPCODE::OPIMM && funct3 == Instruction::ANDI_FUNCT3 {
+                    let andi_imm: u32 = sign_extend_u32(imm, Instruction::OPIMM_BITS) as u32;
+                    Instruction::ANDI {
+                        imm: andi_imm,
+                        rs1: rs1,
+                        rd: rd,
+                    }
                 } else {
-                    todo!()
+                    todo!("unrecognized IType instruction")
                 }
             }
-            _ => todo!(),
+            _ => todo!("only IType instructions are implemented so far"),
         }
     }
 }
@@ -349,6 +341,9 @@ impl RISCV {
             Instruction::STLIU { imm, rs1, rd } => {
                 let rs1_value: u32 = self.reg[rs1];
                 self.reg[rd] = if rs1_value < imm { 1 } else { 0 }
+            }
+            Instruction::ANDI { imm, rs1, rd } => {
+                self.reg[rd] = self.reg[rs1] & imm;
             }
         };
     }

@@ -664,3 +664,161 @@ fn not_pseudo_instruction() {
     // Expected: x5 = ~x6
     assert_eq!(cpu.reg[5], !0xDEADBEEF);
 }
+
+/// Test fetching an SLLI instruction from memory
+#[test]
+fn slli_instruction_fetch() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // Example instruction: SLLI x1, x2, 3
+    // Format: funct7(0000000), shamt(00011), rs1(00010), funct3(001), rd(00001), opcode(0010011)
+    let slli_instruction: Word = 0b0000000_00011_00010_001_00001_0010011;
+    mem.store_word(0x0, slli_instruction);
+
+    let instruction: u32 = cpu.fetch_instruction_word(&mem);
+    assert_eq!(instruction, slli_instruction);
+}
+
+/// Basic operation: Shift left logical immediate
+#[test]
+fn slli_basic_operation() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLLI x1, x2, 2  -> x1 = x2 << 2
+    let slli_instruction: Word = 0b0000000_00010_00010_001_00001_0010011;
+    mem.store_word(0x0, slli_instruction);
+
+    cpu.reg[2] = 5; // 0b0101
+
+    cpu.execute(&mem);
+
+    // 5 << 2 = 20
+    assert_eq!(cpu.reg[1], 20);
+}
+
+/// Shift left by zero (no change)
+#[test]
+fn slli_with_zero_shift() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLLI x3, x4, 0
+    let slli_instruction: Word = 0b0000000_00000_00100_001_00011_0010011;
+    mem.store_word(0x0, slli_instruction);
+
+    cpu.reg[4] = 0x12345678;
+
+    cpu.execute(&mem);
+
+    // Shift by 0 → unchanged
+    assert_eq!(cpu.reg[3], 0x12345678);
+}
+
+/// Shift with large shift amount (e.g. 31 bits)
+#[test]
+fn slli_with_large_shift_amount() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLLI x5, x6, 31
+    let slli_instruction: Word = 0b0000000_11111_00110_001_00101_0010011;
+    mem.store_word(0x0, slli_instruction);
+
+    cpu.reg[6] = 1;
+
+    cpu.execute(&mem);
+
+    // 1 << 31 = 0x80000000
+    assert_eq!(cpu.reg[5], 0x80000000);
+}
+
+/// Shift left by a small value (check bit movement)
+#[test]
+fn slli_small_shift_behavior() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLLI x7, x8, 4
+    let slli_instruction: Word = 0b0000000_00100_01000_001_00111_0010011;
+    mem.store_word(0x0, slli_instruction);
+
+    cpu.reg[8] = 0x0000_00F0; // 240
+
+    cpu.execute(&mem);
+
+    // 0xF0 << 4 = 0xF00
+    assert_eq!(cpu.reg[7], 0x0000_0F00);
+}
+
+/// Shifting zero (should remain zero)
+#[test]
+fn slli_with_reg_0() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLLI x1, x0, 5
+    let slli_instruction: Word = 0b0000000_00101_00000_001_00001_0010011;
+    mem.store_word(0x0, slli_instruction);
+
+    cpu.execute(&mem);
+
+    // 0 << anything = 0
+    assert_eq!(cpu.reg[1], 0);
+}
+
+/// Shifting with all-ones register value
+#[test]
+fn slli_with_all_ones_register() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLLI x3, x1, 1
+    let slli_instruction: Word = 0b0000000_00001_00001_001_00011_0010011;
+    mem.store_word(0x0, slli_instruction);
+
+    cpu.reg[1] = u32::MAX; // 0xFFFF_FFFF
+
+    cpu.execute(&mem);
+
+    // Shift left 1: drops top bit, becomes 0xFFFF_FFFE
+    assert_eq!(cpu.reg[3], 0xFFFF_FFFE);
+}
+
+/// Shifting with sign bit (ensure logical shift, not arithmetic)
+#[test]
+fn slli_logical_shift_behavior() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLLI x2, x3, 1
+    let slli_instruction: Word = 0b0000000_00001_00011_001_00010_0010011;
+    mem.store_word(0x0, slli_instruction);
+
+    // x3 = 0x80000000 (MSB set)
+    cpu.reg[3] = 0x80000000;
+
+    cpu.execute(&mem);
+
+    // Logical shift left by 1 = 0x00000000 (MSB bit shifted out)
+    assert_eq!(cpu.reg[2], 0x00000000);
+}
+
+/// SLLI with a middle register and mid-sized shift
+#[test]
+fn slli_mid_shift_example() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLLI x10, x11, 8
+    let slli_instruction: Word = 0b0000000_01000_01011_001_01010_0010011;
+    mem.store_word(0x0, slli_instruction);
+
+    cpu.reg[11] = 0x0000_00AB;
+
+    cpu.execute(&mem);
+
+    // 0xAB << 8 = 0xAB00
+    assert_eq!(cpu.reg[10], 0x0000_AB00);
+}

@@ -261,6 +261,9 @@ pub enum Instruction {
     SUB { rs1: usize, rs2: usize, rd: usize },
     SLT { rs1: usize, rs2: usize, rd: usize },
     SLTU { rs1: usize, rs2: usize, rd: usize },
+    AND { rs1: usize, rs2: usize, rd: usize },
+    OR { rs1: usize, rs2: usize, rd: usize },
+    XOR { rs1: usize, rs2: usize, rd: usize },
     // TODO: implement these as we go along
 }
 
@@ -283,6 +286,12 @@ impl Instruction {
     const SLT_FUNCT7: usize = 0b0000000;
     const SLTU_FUNCT3: usize = 0b011;
     const SLTU_FUNCT7: usize = 0b0000000;
+    const AND_FUNCT3: usize = 0b111;
+    const AND_FUNCT7: usize = 0b0000000;
+    const OR_FUNCT3: usize = 0b110;
+    const OR_FUNCT7: usize = 0b0000000;
+    const XOR_FUNCT3: usize = 0b100;
+    const XOR_FUNCT7: usize = 0b0000000;
 
     const OPIMM_BITS: u32 = 12;
 
@@ -399,6 +408,21 @@ impl Instruction {
                     && funct7 == Instruction::SLTU_FUNCT7
                 {
                     Instruction::SLTU { rs1, rs2, rd }
+                } else if opcode == OPCODE::OPRR
+                    && funct3 == Instruction::AND_FUNCT3
+                    && funct7 == Instruction::AND_FUNCT7
+                {
+                    Instruction::AND { rs1, rs2, rd }
+                } else if opcode == OPCODE::OPRR
+                    && funct3 == Instruction::OR_FUNCT3
+                    && funct7 == Instruction::OR_FUNCT7
+                {
+                    Instruction::OR { rs1, rs2, rd }
+                } else if opcode == OPCODE::OPRR
+                    && funct3 == Instruction::XOR_FUNCT3
+                    && funct7 == Instruction::XOR_FUNCT7
+                {
+                    Instruction::XOR { rs1, rs2, rd }
                 } else {
                     todo!()
                 }
@@ -526,6 +550,21 @@ impl RISCV {
                     let rs1_value: u32 = self.reg[rs1];
                     let rs2_value: u32 = self.reg[rs2];
                     self.reg[rd] = if rs1_value < rs2_value { 1 } else { 0 }
+                }
+            }
+            Instruction::AND { rs1, rs2, rd } => {
+                if rd != 0 {
+                    self.reg[rd] = self.reg[rs1] & self.reg[rs2];
+                }
+            }
+            Instruction::OR { rs1, rs2, rd } => {
+                if rd != 0 {
+                    self.reg[rd] = self.reg[rs1] | self.reg[rs2];
+                }
+            }
+            Instruction::XOR { rs1, rs2, rd } => {
+                if rd != 0 {
+                    self.reg[rd] = self.reg[rs1] ^ self.reg[rs2];
                 }
             }
         };

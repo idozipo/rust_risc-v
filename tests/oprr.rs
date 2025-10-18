@@ -825,3 +825,538 @@ fn sltu_all_zeros() {
 
     assert_eq!(cpu.reg[31], 0);
 }
+
+/// Test that an AND instruction can be fetched correctly
+#[test]
+fn and_instruction_fetch() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // Example: AND x1, x2, x3
+    // funct7=0000000, rs2=00011, rs1=00010, funct3=111, rd=00001, opcode=0110011
+    let and_instruction: Word = 0b0000000_00011_00010_111_00001_0110011;
+    mem.store_word(0x0, and_instruction);
+
+    let instruction: u32 = cpu.fetch_instruction(&mem);
+    assert_eq!(instruction, and_instruction);
+}
+
+/// Basic AND operation test
+#[test]
+fn and_basic_operation() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // AND x1, x2, x3
+    let and_instruction: Word = 0b0000000_00011_00010_111_00001_0110011;
+    mem.store_word(0x0, and_instruction);
+
+    cpu.reg[2] = 0b1100; // x2 = 12
+    cpu.reg[3] = 0b1010; // x3 = 10
+
+    cpu.clock_cycle(&mem);
+
+    // 1100 & 1010 = 1000 (8)
+    assert_eq!(cpu.reg[1], 0b1000);
+}
+
+/// AND with all bits set
+#[test]
+fn and_with_all_bits_set() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // AND x4, x5, x6
+    let and_instruction: Word = 0b0000000_00110_00101_111_00100_0110011;
+    mem.store_word(0x0, and_instruction);
+
+    cpu.reg[5] = 0xFFFF_FFFF;
+    cpu.reg[6] = 0x1234_5678;
+
+    cpu.clock_cycle(&mem);
+
+    // 0xFFFF_FFFF & 0x12345678 = 0x12345678
+    assert_eq!(cpu.reg[4], 0x1234_5678);
+}
+
+/// AND with zeros
+#[test]
+fn and_with_zeros() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // AND x7, x8, x9
+    let and_instruction: Word = 0b0000000_01001_01000_111_00111_0110011;
+    mem.store_word(0x0, and_instruction);
+
+    cpu.reg[8] = 0xFFFF_FFFF;
+    cpu.reg[9] = 0x0000_0000;
+
+    cpu.clock_cycle(&mem);
+
+    // anything & 0 = 0
+    assert_eq!(cpu.reg[7], 0);
+}
+
+/// AND where both operands are the same
+#[test]
+fn and_same_operands() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // AND x10, x11, x11
+    let and_instruction: Word = 0b0000000_01011_01011_111_01010_0110011;
+    mem.store_word(0x0, and_instruction);
+
+    cpu.reg[11] = 0xDEAD_BEEF;
+
+    cpu.clock_cycle(&mem);
+
+    // x11 & x11 = x11
+    assert_eq!(cpu.reg[10], 0xDEAD_BEEF);
+}
+
+/// AND with alternating bit patterns
+#[test]
+fn and_alternating_bit_patterns() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // AND x12, x13, x14
+    let and_instruction: Word = 0b0000000_01110_01101_111_01100_0110011;
+    mem.store_word(0x0, and_instruction);
+
+    cpu.reg[13] = 0xAAAA_AAAA; // 1010...
+    cpu.reg[14] = 0x5555_5555; // 0101...
+
+    cpu.clock_cycle(&mem);
+
+    // 1010... & 0101... = 0000...
+    assert_eq!(cpu.reg[12], 0x0000_0000);
+}
+
+/// AND where one operand is x0 (always zero)
+#[test]
+fn and_with_x0_operand() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // AND x1, x0, x2 → x1 = 0 & x2 = 0
+    let and_instruction: Word = 0b0000000_00010_00000_111_00001_0110011;
+    mem.store_word(0x0, and_instruction);
+
+    cpu.reg[2] = 0xFFFF_FFFF;
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[1], 0);
+}
+
+/// AND with destination register x0 (should not modify x0)
+#[test]
+fn and_write_to_x0_is_ignored() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // AND x0, x1, x2
+    let and_instruction: Word = 0b0000000_00010_00001_111_00000_0110011;
+    mem.store_word(0x0, and_instruction);
+
+    cpu.reg[1] = 0xAAAA_AAAA;
+    cpu.reg[2] = 0x5555_5555;
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[0], 0);
+}
+
+/// AND with large random values
+#[test]
+fn and_large_values() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // AND x3, x4, x5
+    let and_instruction: Word = 0b0000000_00101_00100_111_00011_0110011;
+    mem.store_word(0x0, and_instruction);
+
+    cpu.reg[4] = 0x1234_ABCD;
+    cpu.reg[5] = 0xFFFF_00FF;
+
+    cpu.clock_cycle(&mem);
+
+    // 0x1234ABCD & 0xFFFF00FF = 0x123400CD
+    assert_eq!(cpu.reg[3], 0x1234_00CD);
+}
+
+/// AND where all registers are zero
+#[test]
+fn and_all_zeros() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // AND x31, x0, x0 → 0 & 0 = 0
+    let and_instruction: Word = 0b0000000_00000_00000_111_11111_0110011;
+    mem.store_word(0x0, and_instruction);
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[31], 0);
+}
+
+/// Test that an OR instruction can be fetched correctly
+#[test]
+fn or_instruction_fetch() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // Example: OR x1, x2, x3
+    // funct7=0000000, rs2=00011, rs1=00010, funct3=110, rd=00001, opcode=0110011
+    let or_instruction: Word = 0b0000000_00011_00010_110_00001_0110011;
+    mem.store_word(0x0, or_instruction);
+
+    let instruction: u32 = cpu.fetch_instruction(&mem);
+    assert_eq!(instruction, or_instruction);
+}
+
+/// Basic OR operation test
+#[test]
+fn or_basic_operation() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // OR x1, x2, x3
+    let or_instruction: Word = 0b0000000_00011_00010_110_00001_0110011;
+    mem.store_word(0x0, or_instruction);
+
+    cpu.reg[2] = 0b1100; // 12
+    cpu.reg[3] = 0b1010; // 10
+
+    cpu.clock_cycle(&mem);
+
+    // 1100 | 1010 = 1110 (14)
+    assert_eq!(cpu.reg[1], 0b1110);
+}
+
+/// OR with all bits set
+#[test]
+fn or_with_all_bits_set() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // OR x4, x5, x6
+    let or_instruction: Word = 0b0000000_00110_00101_110_00100_0110011;
+    mem.store_word(0x0, or_instruction);
+
+    cpu.reg[5] = 0xFFFF_FFFF;
+    cpu.reg[6] = 0x1234_5678;
+
+    cpu.clock_cycle(&mem);
+
+    // 0xFFFF_FFFF | anything = 0xFFFF_FFFF
+    assert_eq!(cpu.reg[4], 0xFFFF_FFFF);
+}
+
+/// OR with zeros
+#[test]
+fn or_with_zeros() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // OR x7, x8, x9
+    let or_instruction: Word = 0b0000000_01001_01000_110_00111_0110011;
+    mem.store_word(0x0, or_instruction);
+
+    cpu.reg[8] = 0xFFFF_0000;
+    cpu.reg[9] = 0x0000_0000;
+
+    cpu.clock_cycle(&mem);
+
+    // x8 | 0 = x8
+    assert_eq!(cpu.reg[7], 0xFFFF_0000);
+}
+
+/// OR where both operands are the same
+#[test]
+fn or_same_operands() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // OR x10, x11, x11
+    let or_instruction: Word = 0b0000000_01011_01011_110_01010_0110011;
+    mem.store_word(0x0, or_instruction);
+
+    cpu.reg[11] = 0xDEAD_BEEF;
+
+    cpu.clock_cycle(&mem);
+
+    // x11 | x11 = x11
+    assert_eq!(cpu.reg[10], 0xDEAD_BEEF);
+}
+
+/// OR with alternating bit patterns
+#[test]
+fn or_alternating_bit_patterns() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // OR x12, x13, x14
+    let or_instruction: Word = 0b0000000_01110_01101_110_01100_0110011;
+    mem.store_word(0x0, or_instruction);
+
+    cpu.reg[13] = 0xAAAA_AAAA; // 1010...
+    cpu.reg[14] = 0x5555_5555; // 0101...
+
+    cpu.clock_cycle(&mem);
+
+    // 1010... | 0101... = 1111...
+    assert_eq!(cpu.reg[12], 0xFFFF_FFFF);
+}
+
+/// OR where one operand is x0 (always zero)
+#[test]
+fn or_with_x0_operand() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // OR x1, x0, x2 → x1 = 0 | x2 = x2
+    let or_instruction: Word = 0b0000000_00010_00000_110_00001_0110011;
+    mem.store_word(0x0, or_instruction);
+
+    cpu.reg[2] = 0x1234_5678;
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[1], 0x1234_5678);
+}
+
+/// OR with destination register x0 (should not modify x0)
+#[test]
+fn or_write_to_x0_is_ignored() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // OR x0, x1, x2
+    let or_instruction: Word = 0b0000000_00010_00001_110_00000_0110011;
+    mem.store_word(0x0, or_instruction);
+
+    cpu.reg[1] = 0xAAAA_AAAA;
+    cpu.reg[2] = 0x5555_5555;
+
+    cpu.clock_cycle(&mem);
+
+    // x0 is hardwired to zero
+    assert_eq!(cpu.reg[0], 0);
+}
+
+/// OR with large random values
+#[test]
+fn or_large_values() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // OR x3, x4, x5
+    let or_instruction: Word = 0b0000000_00101_00100_110_00011_0110011;
+    mem.store_word(0x0, or_instruction);
+
+    cpu.reg[4] = 0x1234_0000;
+    cpu.reg[5] = 0x0000_ABCD;
+
+    cpu.clock_cycle(&mem);
+
+    // 0x12340000 | 0x0000ABCD = 0x1234ABCD
+    assert_eq!(cpu.reg[3], 0x1234_ABCD);
+}
+
+/// OR when all registers are zero
+#[test]
+fn or_all_zeros() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // OR x31, x0, x0 → 0 | 0 = 0
+    let or_instruction: Word = 0b0000000_00000_00000_110_11111_0110011;
+    mem.store_word(0x0, or_instruction);
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[31], 0);
+}
+
+/// Test that a XOR instruction can be fetched correctly
+#[test]
+fn xor_instruction_fetch() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // Example: XOR x1, x2, x3
+    // funct7=0000000, rs2=00011, rs1=00010, funct3=100, rd=00001, opcode=0110011
+    let xor_instruction: Word = 0b0000000_00011_00010_100_00001_0110011;
+    mem.store_word(0x0, xor_instruction);
+
+    let instruction: u32 = cpu.fetch_instruction(&mem);
+    assert_eq!(instruction, xor_instruction);
+}
+
+/// Basic XOR operation test
+#[test]
+fn xor_basic_operation() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // XOR x1, x2, x3
+    let xor_instruction: Word = 0b0000000_00011_00010_100_00001_0110011;
+    mem.store_word(0x0, xor_instruction);
+
+    cpu.reg[2] = 0b1100; // 12
+    cpu.reg[3] = 0b1010; // 10
+
+    cpu.clock_cycle(&mem);
+
+    // 1100 ^ 1010 = 0110 (6)
+    assert_eq!(cpu.reg[1], 0b0110);
+}
+
+/// XOR with identical operands
+#[test]
+fn xor_same_operands() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // XOR x4, x5, x5
+    let xor_instruction: Word = 0b0000000_00101_00101_100_00100_0110011;
+    mem.store_word(0x0, xor_instruction);
+
+    cpu.reg[5] = 0xFFFF_FFFF;
+
+    cpu.clock_cycle(&mem);
+
+    // a ^ a = 0
+    assert_eq!(cpu.reg[4], 0);
+}
+
+/// XOR with all bits set
+#[test]
+fn xor_with_all_bits_set() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // XOR x6, x7, x8
+    let xor_instruction: Word = 0b0000000_01000_00111_100_00110_0110011;
+    mem.store_word(0x0, xor_instruction);
+
+    cpu.reg[7] = 0xFFFF_FFFF;
+    cpu.reg[8] = 0x1234_5678;
+
+    cpu.clock_cycle(&mem);
+
+    // 0xFFFF_FFFF ^ 0x12345678 = bitwise NOT of 0x12345678
+    assert_eq!(cpu.reg[6], !0x1234_5678);
+}
+
+/// XOR with zeros
+#[test]
+fn xor_with_zeros() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // XOR x9, x10, x11
+    let xor_instruction: Word = 0b0000000_01011_01010_100_01001_0110011;
+    mem.store_word(0x0, xor_instruction);
+
+    cpu.reg[10] = 0x0000_0000;
+    cpu.reg[11] = 0xABCD_1234;
+
+    cpu.clock_cycle(&mem);
+
+    // 0 ^ a = a
+    assert_eq!(cpu.reg[9], 0xABCD_1234);
+}
+
+/// XOR alternating bit patterns
+#[test]
+fn xor_alternating_bit_patterns() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // XOR x12, x13, x14
+    let xor_instruction: Word = 0b0000000_01110_01101_100_01100_0110011;
+    mem.store_word(0x0, xor_instruction);
+
+    cpu.reg[13] = 0xAAAA_AAAA; // 1010...
+    cpu.reg[14] = 0x5555_5555; // 0101...
+
+    cpu.clock_cycle(&mem);
+
+    // 1010... ^ 0101... = 1111...
+    assert_eq!(cpu.reg[12], 0xFFFF_FFFF);
+}
+
+/// XOR where one operand is x0 (zero)
+#[test]
+fn xor_with_x0_operand() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // XOR x1, x0, x2 → x1 = 0 ^ x2 = x2
+    let xor_instruction: Word = 0b0000000_00010_00000_100_00001_0110011;
+    mem.store_word(0x0, xor_instruction);
+
+    cpu.reg[2] = 0x1234_5678;
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[1], 0x1234_5678);
+}
+
+/// XOR with destination register x0 (should not modify x0)
+#[test]
+fn xor_write_to_x0_is_ignored() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // XOR x0, x1, x2
+    let xor_instruction: Word = 0b0000000_00010_00001_100_00000_0110011;
+    mem.store_word(0x0, xor_instruction);
+
+    cpu.reg[1] = 0xAAAA_AAAA;
+    cpu.reg[2] = 0x5555_5555;
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[0], 0);
+}
+
+/// XOR with large values
+#[test]
+fn xor_large_values() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // XOR x3, x4, x5
+    let xor_instruction: Word = 0b0000000_00101_00100_100_00011_0110011;
+    mem.store_word(0x0, xor_instruction);
+
+    cpu.reg[4] = 0x1234_ABCD;
+    cpu.reg[5] = 0xFFFF_00FF;
+
+    cpu.clock_cycle(&mem);
+
+    // 0x1234ABCD ^ 0xFFFF00FF = 0xEDCB_AB32
+    assert_eq!(cpu.reg[3], 0xEDCB_AB32);
+}
+
+/// XOR when all registers are zero
+#[test]
+fn xor_all_zeros() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // XOR x31, x0, x0 → 0 ^ 0 = 0
+    let xor_instruction: Word = 0b0000000_00000_00000_100_11111_0110011;
+    mem.store_word(0x0, xor_instruction);
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[31], 0);
+}

@@ -1360,3 +1360,578 @@ fn xor_all_zeros() {
 
     assert_eq!(cpu.reg[31], 0);
 }
+
+/// Test that an SLL instruction can be fetched correctly
+#[test]
+fn sll_instruction_fetch() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // Example: SLL x1, x2, x3
+    // funct7=0000000, rs2=00011, rs1=00010, funct3=001, rd=00001, opcode=0110011
+    let sll_instruction: Word = 0b0000000_00011_00010_001_00001_0110011;
+    mem.store_word(0x0, sll_instruction);
+
+    let instruction: u32 = cpu.fetch_instruction(&mem);
+    assert_eq!(instruction, sll_instruction);
+}
+
+/// Basic SLL operation test
+#[test]
+fn sll_basic_operation() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLL x1, x2, x3 → x1 = x2 << (x3 & 0x1F)
+    let sll_instruction: Word = 0b0000000_00011_00010_001_00001_0110011;
+    mem.store_word(0x0, sll_instruction);
+
+    cpu.reg[2] = 0b0001; // 1
+    cpu.reg[3] = 2; // shift by 2 bits
+
+    cpu.clock_cycle(&mem);
+
+    // 1 << 2 = 4
+    assert_eq!(cpu.reg[1], 0b0100);
+}
+
+/// SLL shift by zero (no change)
+#[test]
+fn sll_shift_by_zero() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLL x4, x5, x6
+    let sll_instruction: Word = 0b0000000_00110_00101_001_00100_0110011;
+    mem.store_word(0x0, sll_instruction);
+
+    cpu.reg[5] = 0x1234_5678;
+    cpu.reg[6] = 0; // shift by 0
+
+    cpu.clock_cycle(&mem);
+
+    // No change expected
+    assert_eq!(cpu.reg[4], 0x1234_5678);
+}
+
+/// SLL shift by 31 (maximum shift in RV32)
+#[test]
+fn sll_shift_by_31() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLL x7, x8, x9
+    let sll_instruction: Word = 0b0000000_01001_01000_001_00111_0110011;
+    mem.store_word(0x0, sll_instruction);
+
+    cpu.reg[8] = 0x1;
+    cpu.reg[9] = 31;
+
+    cpu.clock_cycle(&mem);
+
+    // 1 << 31 = 0x8000_0000
+    assert_eq!(cpu.reg[7], 0x8000_0000);
+}
+
+/// SLL shift amount greater than 31 (should wrap around using lower 5 bits)
+#[test]
+fn sll_shift_by_more_than_31() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLL x10, x11, x12
+    let sll_instruction: Word = 0b0000000_01100_01011_001_01010_0110011;
+    mem.store_word(0x0, sll_instruction);
+
+    cpu.reg[11] = 0x1;
+    cpu.reg[12] = 35; // 35 & 0x1F = 3
+
+    cpu.clock_cycle(&mem);
+
+    // 1 << 3 = 8
+    assert_eq!(cpu.reg[10], 0x8);
+}
+
+/// SLL with alternating bit pattern
+#[test]
+fn sll_alternating_bits() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLL x13, x14, x15
+    let sll_instruction: Word = 0b0000000_01111_01110_001_01101_0110011;
+    mem.store_word(0x0, sll_instruction);
+
+    cpu.reg[14] = 0xAAAA_AAAA; // 1010...
+    cpu.reg[15] = 1; // shift left by 1
+
+    cpu.clock_cycle(&mem);
+
+    // Shift left by 1, low bit becomes 0
+    assert_eq!(cpu.reg[13], 0x5555_5554);
+}
+
+/// SLL with zero as source (x2 = 0)
+#[test]
+fn sll_with_zero_source() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLL x16, x0, x17
+    let sll_instruction: Word = 0b0000000_10001_00000_001_10000_0110011;
+    mem.store_word(0x0, sll_instruction);
+
+    cpu.reg[17] = 10;
+
+    cpu.clock_cycle(&mem);
+
+    // 0 << anything = 0
+    assert_eq!(cpu.reg[16], 0);
+}
+
+/// SLL with destination register x0 (should not modify x0)
+#[test]
+fn sll_write_to_x0_is_ignored() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLL x0, x1, x2
+    let sll_instruction: Word = 0b0000000_00010_00001_001_00000_0110011;
+    mem.store_word(0x0, sll_instruction);
+
+    cpu.reg[1] = 0xF0F0_F0F0;
+    cpu.reg[2] = 4;
+
+    cpu.clock_cycle(&mem);
+
+    // x0 remains 0
+    assert_eq!(cpu.reg[0], 0);
+}
+
+/// SLL with large initial value
+#[test]
+fn sll_large_value_shift() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLL x3, x4, x5
+    let sll_instruction: Word = 0b0000000_00101_00100_001_00011_0110011;
+    mem.store_word(0x0, sll_instruction);
+
+    cpu.reg[4] = 0x000F_FFFF;
+    cpu.reg[5] = 8;
+
+    cpu.clock_cycle(&mem);
+
+    // 0x000FFFFF << 8 = 0x0FFFFF00
+    assert_eq!(cpu.reg[3], 0x0FFF_FF00);
+}
+
+/// SLL when all registers are zero
+#[test]
+fn sll_all_zeros() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLL x31, x0, x0 → 0 << 0 = 0
+    let sll_instruction: Word = 0b0000000_00000_00000_001_11111_0110011;
+    mem.store_word(0x0, sll_instruction);
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[31], 0);
+}
+
+/// Test that an SRL instruction can be fetched correctly
+#[test]
+fn srl_instruction_fetch() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // Example: SRL x1, x2, x3
+    // funct7=0000000, rs2=00011, rs1=00010, funct3=101, rd=00001, opcode=0110011
+    let srl_instruction: Word = 0b0000000_00011_00010_101_00001_0110011;
+    mem.store_word(0x0, srl_instruction);
+
+    let instruction: u32 = cpu.fetch_instruction(&mem);
+    assert_eq!(instruction, srl_instruction);
+}
+
+/// Basic SRL operation test
+#[test]
+fn srl_basic_operation() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRL x1, x2, x3 → x1 = x2 >> (x3 & 0x1F)
+    let srl_instruction: Word = 0b0000000_00011_00010_101_00001_0110011;
+    mem.store_word(0x0, srl_instruction);
+
+    cpu.reg[2] = 0b1000; // 8
+    cpu.reg[3] = 2; // shift by 2
+
+    cpu.clock_cycle(&mem);
+
+    // 8 >> 2 = 2
+    assert_eq!(cpu.reg[1], 0b10);
+}
+
+/// SRL shift by zero (no change)
+#[test]
+fn srl_shift_by_zero() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRL x4, x5, x6
+    let srl_instruction: Word = 0b0000000_00110_00101_101_00100_0110011;
+    mem.store_word(0x0, srl_instruction);
+
+    cpu.reg[5] = 0xF0F0_F0F0;
+    cpu.reg[6] = 0; // shift by 0
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[4], 0xF0F0_F0F0);
+}
+
+/// SRL shift by 31 (maximum in RV32)
+#[test]
+fn srl_shift_by_31() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRL x7, x8, x9
+    let srl_instruction: Word = 0b0000000_01001_01000_101_00111_0110011;
+    mem.store_word(0x0, srl_instruction);
+
+    cpu.reg[8] = 0x8000_0000;
+    cpu.reg[9] = 31;
+
+    cpu.clock_cycle(&mem);
+
+    // Logical right shift: only bit 31 moves to bit 0
+    assert_eq!(cpu.reg[7], 1);
+}
+
+/// SRL shift by more than 31 (wraps via 0x1F)
+#[test]
+fn srl_shift_by_more_than_31() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRL x10, x11, x12
+    let srl_instruction: Word = 0b0000000_01100_01011_101_01010_0110011;
+    mem.store_word(0x0, srl_instruction);
+
+    cpu.reg[11] = 0xFFFF_FFFF;
+    cpu.reg[12] = 35; // 35 & 0x1F = 3
+
+    cpu.clock_cycle(&mem);
+
+    // 0xFFFF_FFFF >> 3 = 0x1FFF_FFFF
+    assert_eq!(cpu.reg[10], 0x1FFF_FFFF);
+}
+
+/// SRL with alternating bit pattern
+#[test]
+fn srl_alternating_bits() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRL x13, x14, x15
+    let srl_instruction: Word = 0b0000000_01111_01110_101_01101_0110011;
+    mem.store_word(0x0, srl_instruction);
+
+    cpu.reg[14] = 0xAAAA_AAAA; // 1010...
+    cpu.reg[15] = 1;
+
+    cpu.clock_cycle(&mem);
+
+    // Logical shift right by 1
+    assert_eq!(cpu.reg[13], 0x5555_5555);
+}
+
+/// SRL with zero source
+#[test]
+fn srl_with_zero_source() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRL x16, x0, x17
+    let srl_instruction: Word = 0b0000000_10001_00000_101_10000_0110011;
+    mem.store_word(0x0, srl_instruction);
+
+    cpu.reg[17] = 10;
+
+    cpu.clock_cycle(&mem);
+
+    // 0 >> anything = 0
+    assert_eq!(cpu.reg[16], 0);
+}
+
+/// SRL write to x0 should be ignored
+#[test]
+fn srl_write_to_x0_is_ignored() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRL x0, x1, x2
+    let srl_instruction: Word = 0b0000000_00010_00001_101_00000_0110011;
+    mem.store_word(0x0, srl_instruction);
+
+    cpu.reg[1] = 0xFFFF_FFFF;
+    cpu.reg[2] = 4;
+
+    cpu.clock_cycle(&mem);
+
+    // x0 must stay zero
+    assert_eq!(cpu.reg[0], 0);
+}
+
+/// SRL with large initial value
+#[test]
+fn srl_large_value_shift() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRL x3, x4, x5
+    let srl_instruction: Word = 0b0000000_00101_00100_101_00011_0110011;
+    mem.store_word(0x0, srl_instruction);
+
+    cpu.reg[4] = 0xFFFF_0000;
+    cpu.reg[5] = 8;
+
+    cpu.clock_cycle(&mem);
+
+    // 0xFFFF_0000 >> 8 = 0x00FF_FF00
+    assert_eq!(cpu.reg[3], 0x00FF_FF00);
+}
+
+/// SRL when all registers are zero
+#[test]
+fn srl_all_zeros() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRL x31, x0, x0 → 0 >> 0 = 0
+    let srl_instruction: Word = 0b0000000_00000_00000_101_11111_0110011;
+    mem.store_word(0x0, srl_instruction);
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[31], 0);
+}
+
+/// SRL with same register as source and destination
+#[test]
+fn srl_same_registers() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRL x5, x5, x5 (x5 = x5 >> (x5 & 0x1F))
+    let srl_instruction: Word = 0b0000000_00101_00101_101_00101_0110011;
+    mem.store_word(0x0, srl_instruction);
+
+    cpu.reg[5] = 0xF0F0_F0F0; // value = F0F0_F0F0 (shift amount = 0x10 = 16)
+    cpu.clock_cycle(&mem);
+
+    // 0xF0F0_F0F0 >> 16 = 0x0000_F0F0
+    assert_eq!(cpu.reg[5], 0x0000_F0F0);
+}
+
+/// Test that an SRA instruction can be fetched correctly
+#[test]
+fn sra_instruction_fetch() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // Example: SRA x1, x2, x3
+    // funct7=0100000, rs2=00011, rs1=00010, funct3=101, rd=00001, opcode=0110011
+    let sra_instruction: Word = 0b0100000_00011_00010_101_00001_0110011;
+    mem.store_word(0x0, sra_instruction);
+
+    let instruction: u32 = cpu.fetch_instruction(&mem);
+    assert_eq!(instruction, sra_instruction);
+}
+
+/// Basic SRA operation test (positive number)
+#[test]
+fn sra_basic_operation_positive() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRA x1, x2, x3 → x1 = (x2 as i32) >> (x3 & 0x1F)
+    let sra_instruction: Word = 0b0100000_00011_00010_101_00001_0110011;
+    mem.store_word(0x0, sra_instruction);
+
+    cpu.reg[2] = 0b1000; // 8
+    cpu.reg[3] = 2; // shift by 2
+
+    cpu.clock_cycle(&mem);
+
+    // 8 >> 2 = 2
+    assert_eq!(cpu.reg[1], 0b10);
+}
+
+/// SRA with negative number (sign extension)
+#[test]
+fn sra_negative_number_sign_extend() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRA x4, x5, x6
+    let sra_instruction: Word = 0b0100000_00110_00101_101_00100_0110011;
+    mem.store_word(0x0, sra_instruction);
+
+    // x5 = -8 (0xFFFF_FFF8)
+    cpu.reg[5] = (-8i32) as u32;
+    cpu.reg[6] = 2;
+
+    cpu.clock_cycle(&mem);
+
+    // Arithmetic right shift keeps sign bits: -8 >> 2 = -2
+    assert_eq!(cpu.reg[4] as i32, -2);
+}
+
+/// SRA shift by zero (no change)
+#[test]
+fn sra_shift_by_zero() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRA x7, x8, x9
+    let sra_instruction: Word = 0b0100000_01001_01000_101_00111_0110011;
+    mem.store_word(0x0, sra_instruction);
+
+    cpu.reg[8] = 0xF000_0000;
+    cpu.reg[9] = 0; // shift by 0
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[7], 0xF000_0000);
+}
+
+/// SRA shift by 31 (maximum shift)
+#[test]
+fn sra_shift_by_31() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRA x10, x11, x12
+    let sra_instruction: Word = 0b0100000_01100_01011_101_01010_0110011;
+    mem.store_word(0x0, sra_instruction);
+
+    cpu.reg[11] = (-1i32) as u32; // 0xFFFF_FFFF
+    cpu.reg[12] = 31;
+
+    cpu.clock_cycle(&mem);
+
+    // -1 >> 31 = -1 (sign bit stays 1)
+    assert_eq!(cpu.reg[10] as i32, -1);
+}
+
+/// SRA shift by more than 31 (mask with 0x1F)
+#[test]
+fn sra_shift_by_more_than_31() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRA x13, x14, x15
+    let sra_instruction: Word = 0b0100000_01111_01110_101_01101_0110011;
+    mem.store_word(0x0, sra_instruction);
+
+    cpu.reg[14] = (-128i32) as u32; // 0xFFFFFF80
+    cpu.reg[15] = 35; // 35 & 0x1F = 3
+
+    cpu.clock_cycle(&mem);
+
+    // -128 >> 3 = -16
+    assert_eq!(cpu.reg[13] as i32, -16);
+}
+
+/// SRA with alternating bits (negative)
+#[test]
+fn sra_alternating_bits_negative() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRA x19, x20, x21
+    let sra_instruction: Word = 0b0100000_10101_10100_101_10011_0110011;
+    mem.store_word(0x0, sra_instruction);
+
+    cpu.reg[20] = 0xAAAA_AAAA; // signed = -1431655766
+    cpu.reg[21] = 1;
+
+    cpu.clock_cycle(&mem);
+
+    // Arithmetic shift preserves sign bit (1)
+    assert_eq!(cpu.reg[19], 0xD555_5555);
+}
+
+/// SRA with zero source (x0)
+#[test]
+fn sra_with_zero_source() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRA x22, x0, x23
+    let sra_instruction: Word = 0b0100000_10111_00000_101_10110_0110011;
+    mem.store_word(0x0, sra_instruction);
+
+    cpu.reg[23] = 10;
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[22], 0);
+}
+
+/// SRA write to x0 should be ignored
+#[test]
+fn sra_write_to_x0_is_ignored() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRA x0, x1, x2
+    let sra_instruction: Word = 0b0100000_00010_00001_101_00000_0110011;
+    mem.store_word(0x0, sra_instruction);
+
+    cpu.reg[1] = (-1i32) as u32;
+    cpu.reg[2] = 4;
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[0], 0);
+}
+
+/// SRA with same register as all operands (x5 = x5 >> (x5 & 0x1F))
+#[test]
+fn sra_same_registers() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRA x5, x5, x5
+    let sra_instruction: Word = 0b0100000_00101_00101_101_00101_0110011;
+    mem.store_word(0x0, sra_instruction);
+
+    cpu.reg[5] = (-256i32) as u32; // 0xFFFF_FF00 → shift by 0
+
+    cpu.clock_cycle(&mem);
+
+    // -256 >> 16 = -1 (0xFFFF_FFFF)
+    assert_eq!(cpu.reg[5] as i32, -256);
+}
+
+/// SRA when all registers are zero
+#[test]
+fn sra_all_zeros() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SRA x31, x0, x0 → 0 >> 0 = 0
+    let sra_instruction: Word = 0b0100000_00000_00000_101_11111_0110011;
+    mem.store_word(0x0, sra_instruction);
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[31], 0);
+}

@@ -264,6 +264,9 @@ pub enum Instruction {
     AND { rs1: usize, rs2: usize, rd: usize },
     OR { rs1: usize, rs2: usize, rd: usize },
     XOR { rs1: usize, rs2: usize, rd: usize },
+    SLL { rs1: usize, rs2: usize, rd: usize },
+    SRL { rs1: usize, rs2: usize, rd: usize },
+    SRA { rs1: usize, rs2: usize, rd: usize },
     // TODO: implement these as we go along
 }
 
@@ -292,6 +295,12 @@ impl Instruction {
     const OR_FUNCT7: usize = 0b0000000;
     const XOR_FUNCT3: usize = 0b100;
     const XOR_FUNCT7: usize = 0b0000000;
+    const SLL_FUNCT3: usize = 0b001;
+    const SLL_FUNCT7: usize = 0b0000000;
+    const SRL_FUNCT3: usize = 0b101;
+    const SRL_FUNCT7: usize = 0b0000000;
+    const SRA_FUNCT3: usize = 0b101;
+    const SRA_FUNCT7: usize = 0b0100000;
 
     const OPIMM_BITS: u32 = 12;
 
@@ -423,6 +432,21 @@ impl Instruction {
                     && funct7 == Instruction::XOR_FUNCT7
                 {
                     Instruction::XOR { rs1, rs2, rd }
+                } else if opcode == OPCODE::OPRR
+                    && funct3 == Instruction::SLL_FUNCT3
+                    && funct7 == Instruction::SLL_FUNCT7
+                {
+                    Instruction::SLL { rs1, rs2, rd }
+                } else if opcode == OPCODE::OPRR
+                    && funct3 == Instruction::SRL_FUNCT3
+                    && funct7 == Instruction::SRL_FUNCT7
+                {
+                    Instruction::SRL { rs1, rs2, rd }
+                } else if opcode == OPCODE::OPRR
+                    && funct3 == Instruction::SRA_FUNCT3
+                    && funct7 == Instruction::SRA_FUNCT7
+                {
+                    Instruction::SRA { rs1, rs2, rd }
                 } else {
                     todo!()
                 }
@@ -565,6 +589,27 @@ impl RISCV {
             Instruction::XOR { rs1, rs2, rd } => {
                 if rd != 0 {
                     self.reg[rd] = self.reg[rs1] ^ self.reg[rs2];
+                }
+            }
+            Instruction::SLL { rs1, rs2, rd } => {
+                if rd != 0 {
+                    let shamt: u32 = (self.reg[rs2] & 0b11111) as u32; // shift amount is in lower 5 bits
+                    let rs1_value: u32 = self.reg[rs1];
+                    self.reg[rd] = (rs1_value << shamt) as u32;
+                }
+            }
+            Instruction::SRL { rs1, rs2, rd } => {
+                if rd != 0 {
+                    let shamt: u32 = (self.reg[rs2] & 0b11111) as u32; // shift amount is in lower 5 bits
+                    let rs1_value: u32 = self.reg[rs1];
+                    self.reg[rd] = (rs1_value >> shamt) as u32;
+                }
+            }
+            Instruction::SRA { rs1, rs2, rd } => {
+                if rd != 0 {
+                    let shamt: u32 = (self.reg[rs2] & 0b11111) as u32; // shift amount is in lower 5 bits
+                    let rs1_value: i32 = self.reg[rs1] as i32;
+                    self.reg[rd] = (rs1_value >> shamt) as u32;
                 }
             }
         };

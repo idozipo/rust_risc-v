@@ -445,34 +445,52 @@ impl RISCV {
         let parsed_instruction: Instruction = Instruction::parse_instruction(encoding);
         match parsed_instruction {
             Instruction::ADDI { imm, rs1, rd } => {
-                self.reg[rd] = self.reg[rs1].wrapping_add(imm as u32);
+                if rd != 0 {
+                    self.reg[rd] = self.reg[rs1].wrapping_add(imm as u32);
+                }
             }
             Instruction::SLTI { imm, rs1, rd } => {
-                let rs1_value: i32 = self.reg[rs1] as i32;
-                self.reg[rd] = if rs1_value < imm { 1 } else { 0 };
+                if rd != 0 {
+                    let rs1_value: i32 = self.reg[rs1] as i32;
+                    self.reg[rd] = if rs1_value < imm { 1 } else { 0 };
+                }
             }
             Instruction::STLIU { imm, rs1, rd } => {
-                let rs1_value: u32 = self.reg[rs1];
-                self.reg[rd] = if rs1_value < imm { 1 } else { 0 }
+                if rd != 0 {
+                    let rs1_value: u32 = self.reg[rs1];
+                    self.reg[rd] = if rs1_value < imm { 1 } else { 0 }
+                }
             }
             Instruction::ANDI { imm, rs1, rd } => {
-                self.reg[rd] = self.reg[rs1] & imm;
+                if rd != 0 {
+                    self.reg[rd] = self.reg[rs1] & imm;
+                }
             }
             Instruction::ORI { imm, rs1, rd } => {
-                self.reg[rd] = self.reg[rs1] | imm;
+                if rd != 0 {
+                    self.reg[rd] = self.reg[rs1] | imm;
+                }
             }
             Instruction::XORI { imm, rs1, rd } => {
-                self.reg[rd] = self.reg[rs1] ^ imm;
+                if rd != 0 {
+                    self.reg[rd] = self.reg[rs1] ^ imm;
+                }
             }
             Instruction::SLLI { shamt, rs1, rd } => {
-                self.reg[rd] = self.reg[rs1] << shamt;
+                if rd != 0 {
+                    self.reg[rd] = self.reg[rs1] << shamt;
+                }
             }
             Instruction::SRLI { shamt, rs1, rd } => {
-                self.reg[rd] = self.reg[rs1] >> shamt;
+                if rd != 0 {
+                    self.reg[rd] = self.reg[rs1] >> shamt;
+                }
             }
             Instruction::SRAI { shamt, rs1, rd } => {
-                let rs1_value: i32 = self.reg[rs1] as i32;
-                self.reg[rd] = (rs1_value >> shamt) as u32;
+                if rd != 0 {
+                    let rs1_value: i32 = self.reg[rs1] as i32;
+                    self.reg[rd] = (rs1_value >> shamt) as u32;
+                }
             }
             Instruction::LUI { imm, rd } => {
                 if rd != 0 {

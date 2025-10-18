@@ -269,6 +269,7 @@ pub enum Instruction {
     SRA { rs1: usize, rs2: usize, rd: usize },
     // JAL \ JALR
     JAL { offset: i32, rd: usize },
+    JALR { offset: i32, rs1: usize, rd: usize },
     // TODO: implement these as we go along
 }
 
@@ -304,8 +305,11 @@ impl Instruction {
     const SRA_FUNCT3: usize = 0b101;
     const SRA_FUNCT7: usize = 0b0100000;
 
+    const JALR_FUNCT3: usize = 0b000;
+
     const OPIMM_BITS: u32 = 12;
     const JAL_BITS: u32 = 21;
+    const JALR_BITS: u32 = 12;
 
     pub fn parse_instruction(encoding: EncodingVariant) -> Instruction {
         match encoding {
@@ -373,6 +377,13 @@ impl Instruction {
                 {
                     let shamt: u32 = (imm & 0b11111) as u32; // shift amount is in lower 5 bits
                     Instruction::SRAI { shamt, rs1, rd }
+                } else if opcode == OPCODE::JALR && funct3 == Instruction::JALR_FUNCT3 {
+                    let jalr_imm: i32 = sign_extend_u32(imm, Instruction::JALR_BITS);
+                    Instruction::JALR {
+                        offset: jalr_imm,
+                        rs1,
+                        rd,
+                    }
                 } else {
                     panic!("unrecognized IType instruction")
                 }
@@ -642,6 +653,17 @@ impl RISCV {
                 assert!(
                     target_address % 4 == 0,
                     "JAL target address must be aligned to 4 bytes"
+                );
+                self.pc = target_address.wrapping_sub(4); // subtract 4 because pc will be incremented after execute
+            }
+            Instruction::JALR { offset, rs1, rd } => {
+                if rd != 0 {
+                    self.reg[rd] = self.pc.wrapping_add(4);
+                }
+                let target_address: u32 = self.reg[rs1].wrapping_add_signed(offset) & !1; // set LSB to 0
+                assert!(
+                    target_address % 4 == 0,
+                    "JALR target address must be aligned to 4 bytes"
                 );
                 self.pc = target_address.wrapping_sub(4); // subtract 4 because pc will be incremented after execute
             }

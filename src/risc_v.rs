@@ -259,6 +259,7 @@ pub enum Instruction {
     // OPRR
     ADD { rs1: usize, rs2: usize, rd: usize },
     SUB { rs1: usize, rs2: usize, rd: usize },
+    SLT { rs1: usize, rs2: usize, rd: usize },
     // TODO: implement these as we go along
 }
 
@@ -277,6 +278,8 @@ impl Instruction {
     const ADD_FUNCT7: usize = 0b0000000;
     const SUB_FUNCT3: usize = 0b000;
     const SUB_FUNCT7: usize = 0b0100000;
+    const SLT_FUNCT3: usize = 0b010;
+    const SLT_FUNCT7: usize = 0b0000000;
 
     const OPIMM_BITS: u32 = 12;
 
@@ -383,6 +386,11 @@ impl Instruction {
                     && funct7 == Instruction::SUB_FUNCT7
                 {
                     Instruction::SUB { rs1, rs2, rd }
+                } else if opcode == OPCODE::OPRR
+                    && funct3 == Instruction::SLT_FUNCT3
+                    && funct7 == Instruction::SLT_FUNCT7
+                {
+                    Instruction::SLT { rs1, rs2, rd }
                 } else {
                     todo!()
                 }
@@ -478,6 +486,13 @@ impl RISCV {
             Instruction::SUB { rs1, rs2, rd } => {
                 if rd != 0 {
                     self.reg[rd] = self.reg[rs1].wrapping_sub(self.reg[rs2]);
+                }
+            }
+            Instruction::SLT { rs1, rs2, rd } => {
+                if rd != 0 {
+                    let rs1_value: i32 = self.reg[rs1] as i32;
+                    let rs2_value: i32 = self.reg[rs2] as i32;
+                    self.reg[rd] = if rs1_value < rs2_value { 1 } else { 0 };
                 }
             }
         };

@@ -362,3 +362,235 @@ fn sub_all_zeros() {
 
     assert_eq!(cpu.reg[31], 0);
 }
+
+/// Test that an SLT instruction can be fetched correctly
+#[test]
+fn slt_instruction_fetch() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // Example: SLT x1, x2, x3
+    // funct7=0000000, rs2=00011, rs1=00010, funct3=010, rd=00001, opcode=0110011
+    let slt_instruction: Word = 0b0000000_00011_00010_010_00001_0110011;
+    mem.store_word(0x0, slt_instruction);
+
+    let instruction: u32 = cpu.fetch_instruction(&mem);
+    assert_eq!(instruction, slt_instruction);
+}
+
+/// Basic SLT operation test (less than → true)
+#[test]
+fn slt_basic_less_than() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLT x1, x2, x3 → x1 = (x2 < x3) ? 1 : 0
+    let slt_instruction: Word = 0b0000000_00011_00010_010_00001_0110011;
+    mem.store_word(0x0, slt_instruction);
+
+    cpu.reg[2] = 5; // x2
+    cpu.reg[3] = 7; // x3
+
+    cpu.clock_cycle(&mem);
+
+    // 5 < 7 → x1 = 1
+    assert_eq!(cpu.reg[1], 1);
+}
+
+/// SLT where rs1 > rs2 (false)
+#[test]
+fn slt_greater_than() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLT x4, x5, x6
+    let slt_instruction: Word = 0b0000000_00110_00101_010_00100_0110011;
+    mem.store_word(0x0, slt_instruction);
+
+    cpu.reg[5] = 9;
+    cpu.reg[6] = 3;
+
+    cpu.clock_cycle(&mem);
+
+    // 9 < 3 → false → 0
+    assert_eq!(cpu.reg[4], 0);
+}
+
+/// SLT with equal operands
+#[test]
+fn slt_equal_operands() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLT x7, x8, x9
+    let slt_instruction: Word = 0b0000000_01001_01000_010_00111_0110011;
+    mem.store_word(0x0, slt_instruction);
+
+    cpu.reg[8] = 42;
+    cpu.reg[9] = 42;
+
+    cpu.clock_cycle(&mem);
+
+    // 42 < 42 → false
+    assert_eq!(cpu.reg[7], 0);
+}
+
+/// SLT with signed negative operands
+#[test]
+fn slt_with_negative_operands() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLT x10, x11, x12
+    let slt_instruction: Word = 0b0000000_01100_01011_010_01010_0110011;
+    mem.store_word(0x0, slt_instruction);
+
+    cpu.reg[11] = (-5i32) as u32; // x11 = -5
+    cpu.reg[12] = 3; // x12 = 3
+
+    cpu.clock_cycle(&mem);
+
+    // -5 < 3 → true
+    assert_eq!(cpu.reg[10], 1);
+}
+
+/// SLT with both negative operands
+#[test]
+fn slt_two_negative_numbers() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLT x13, x14, x15
+    let slt_instruction: Word = 0b0000000_01111_01110_010_01101_0110011;
+    mem.store_word(0x0, slt_instruction);
+
+    cpu.reg[14] = (-10i32) as u32; // x14 = -10
+    cpu.reg[15] = (-3i32) as u32; // x15 = -3
+
+    cpu.clock_cycle(&mem);
+
+    // -10 < -3 → true
+    assert_eq!(cpu.reg[13], 1);
+}
+
+/// SLT where rs1 negative and rs2 positive (should be true)
+#[test]
+fn slt_negative_vs_positive() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLT x16, x17, x18
+    let slt_instruction: Word = 0b0000000_10010_10001_010_10000_0110011;
+    mem.store_word(0x0, slt_instruction);
+
+    cpu.reg[17] = (-1i32) as u32;
+    cpu.reg[18] = 1;
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[16], 1);
+}
+
+/// SLT where rs1 positive and rs2 negative (should be false)
+#[test]
+fn slt_positive_vs_negative() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLT x19, x20, x21
+    let slt_instruction: Word = 0b0000000_10101_10100_010_10011_0110011;
+    mem.store_word(0x0, slt_instruction);
+
+    cpu.reg[20] = 5;
+    cpu.reg[21] = (-5i32) as u32;
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[19], 0);
+}
+
+/// SLT when rs1 = 0 and rs2 positive
+#[test]
+fn slt_zero_vs_positive() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLT x1, x0, x2 → x1 = (0 < x2)
+    let slt_instruction: Word = 0b0000000_00010_00000_010_00001_0110011;
+    mem.store_word(0x0, slt_instruction);
+
+    cpu.reg[2] = 123;
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[1], 1);
+}
+
+/// SLT writing to x0 should have no effect
+#[test]
+fn slt_write_to_x0_is_ignored() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLT x0, x1, x2
+    let slt_instruction: Word = 0b0000000_00010_00001_010_00000_0110011;
+    mem.store_word(0x0, slt_instruction);
+
+    cpu.reg[1] = 10;
+    cpu.reg[2] = 20;
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[0], 0);
+}
+
+/// SLT where rs1 == rs2 (should be 0)
+#[test]
+fn slt_same_registers() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLT x3, x3, x3
+    let slt_instruction: Word = 0b0000000_00011_00011_010_00011_0110011;
+    mem.store_word(0x0, slt_instruction);
+
+    cpu.reg[3] = 123;
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[3], 0);
+}
+
+/// SLT with large values (unsigned wrap-around shouldn't matter for signed comparison)
+#[test]
+fn slt_large_values_signed_compare() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLT x5, x6, x7
+    let slt_instruction: Word = 0b0000000_00111_00110_010_00101_0110011;
+    mem.store_word(0x0, slt_instruction);
+
+    cpu.reg[6] = 0x8000_0000; // -2147483648 in signed
+    cpu.reg[7] = 0x7FFF_FFFF; //  2147483647 in signed
+
+    cpu.clock_cycle(&mem);
+
+    // -2147483648 < 2147483647 → true
+    assert_eq!(cpu.reg[5], 1);
+}
+
+/// SLT when all registers are zero
+#[test]
+fn slt_all_zeros() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // SLT x31, x0, x0 → 0 < 0 = false
+    let slt_instruction: Word = 0b0000000_00000_00000_010_11111_0110011;
+    mem.store_word(0x0, slt_instruction);
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[31], 0);
+}

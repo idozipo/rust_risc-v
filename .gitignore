@@ -1,0 +1,22 @@
+# Generated binary and intermediate files
+###############################################################
+/target/
+
+# The 'target' directory is where Cargo puts all compiled code,
+# including executables, libraries, and intermediate object files.
+# NEVER commit this directory.
+
+# Build/Artifact directories for various platforms (in case of cross-compiling)
+# You only need the main /target/ above, but these are good to include:
+# target/debug/
+# target/release/
+# target/doc/
+# target/tests/
+
+# Rust's dependency manager (crates.io) cache
+# This stores downloaded source code for dependencies.
+# Uncomment if your Cargo home is inside the project directory (rare)
+# .cargo/
+
+# System and Editor Files
+###############################################################

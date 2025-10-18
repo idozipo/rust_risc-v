@@ -267,6 +267,8 @@ pub enum Instruction {
     SLL { rs1: usize, rs2: usize, rd: usize },
     SRL { rs1: usize, rs2: usize, rd: usize },
     SRA { rs1: usize, rs2: usize, rd: usize },
+    // JAL \ JALR
+    JAL { offset: i32, rd: usize },
     // TODO: implement these as we go along
 }
 
@@ -303,6 +305,7 @@ impl Instruction {
     const SRA_FUNCT7: usize = 0b0100000;
 
     const OPIMM_BITS: u32 = 12;
+    const JAL_BITS: u32 = 21;
 
     pub fn parse_instruction(encoding: EncodingVariant) -> Instruction {
         match encoding {
@@ -449,6 +452,24 @@ impl Instruction {
                     Instruction::SRA { rs1, rs2, rd }
                 } else {
                     todo!()
+                }
+            }
+            EncodingVariant::JType {
+                imm_20,
+                imm_10_1,
+                imm_11,
+                imm_19_12,
+                rd,
+                opcode,
+            } => {
+                if opcode == OPCODE::JAL {
+                    let offset: i32 = sign_extend_u32(
+                        (imm_20 << 20) | (imm_19_12 << 12) | (imm_11 << 11) | (imm_10_1 << 1),
+                        Instruction::JAL_BITS,
+                    );
+                    Instruction::JAL { offset, rd }
+                } else {
+                    panic!("unrecognized JType instruction")
                 }
             }
             _ => todo!("only IType instructions are implemented so far"),
@@ -611,6 +632,18 @@ impl RISCV {
                     let rs1_value: i32 = self.reg[rs1] as i32;
                     self.reg[rd] = (rs1_value >> shamt) as u32;
                 }
+            }
+            Instruction::JAL { offset, rd } => {
+                assert!(offset % 2 == 0, "JAL offset must be aligned to 2 bytes");
+                if rd != 0 {
+                    self.reg[rd] = self.pc.wrapping_add(4);
+                }
+                let target_address: u32 = self.pc.wrapping_add_signed(offset);
+                assert!(
+                    target_address % 4 == 0,
+                    "JAL target address must be aligned to 4 bytes"
+                );
+                self.pc = target_address.wrapping_sub(4); // subtract 4 because pc will be incremented after execute
             }
         };
     }

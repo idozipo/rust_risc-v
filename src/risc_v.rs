@@ -270,6 +270,9 @@ pub enum Instruction {
     // JAL \ JALR
     JAL { offset: i32, rd: usize },
     JALR { offset: i32, rs1: usize, rd: usize },
+    // BRANCH
+    BEQ { offset: i32, rs1: usize, rs2: usize },
+    BNE { offset: i32, rs1: usize, rs2: usize },
     // TODO: implement these as we go along
 }
 
@@ -307,9 +310,13 @@ impl Instruction {
 
     const JALR_FUNCT3: usize = 0b000;
 
+    const BEQ_FUNCT3: usize = 0b000;
+    const BNE_FUNCT3: usize = 0b001;
+
     const OPIMM_BITS: u32 = 12;
     const JAL_BITS: u32 = 21;
     const JALR_BITS: u32 = 12;
+    const BRANCH_BITS: u32 = 13;
 
     pub fn parse_instruction(encoding: EncodingVariant) -> Instruction {
         match encoding {
@@ -481,6 +488,28 @@ impl Instruction {
                     Instruction::JAL { offset, rd }
                 } else {
                     panic!("unrecognized JType instruction")
+                }
+            }
+            EncodingVariant::BType {
+                imm_12,
+                imm_10_5,
+                rs2,
+                rs1,
+                funct3,
+                imm_4_1,
+                imm_11,
+                opcode,
+            } => {
+                let offset: i32 = sign_extend_u32(
+                    (imm_12 << 12) | (imm_11 << 11) | (imm_10_5 << 5) | (imm_4_1 << 1),
+                    Instruction::BRANCH_BITS,
+                );
+                if opcode == OPCODE::BRANCH && funct3 == Instruction::BEQ_FUNCT3 {
+                    Instruction::BEQ { offset, rs1, rs2 }
+                } else if opcode == OPCODE::BRANCH && funct3 == Instruction::BNE_FUNCT3 {
+                    Instruction::BNE { offset, rs1, rs2 }
+                } else {
+                    panic!("unrecognized BType instruction")
                 }
             }
             _ => todo!("only IType instructions are implemented so far"),
@@ -666,6 +695,28 @@ impl RISCV {
                     "JALR target address must be aligned to 4 bytes"
                 );
                 self.pc = target_address.wrapping_sub(4); // subtract 4 because pc will be incremented after execute
+            }
+            Instruction::BEQ { offset, rs1, rs2 } => {
+                let target_address: u32 = self.pc.wrapping_add_signed(offset);
+
+                if self.reg[rs1] == self.reg[rs2] {
+                    assert!(
+                        target_address % 4 == 0,
+                        "BEQ target address must be aligned to 4 bytes"
+                    );
+                    self.pc = target_address.wrapping_sub(4); // subtract 4 because pc will be incremented after execute
+                }
+            }
+            Instruction::BNE { offset, rs1, rs2 } => {
+                let target_address: u32 = self.pc.wrapping_add_signed(offset);
+
+                if self.reg[rs1] != self.reg[rs2] {
+                    assert!(
+                        target_address % 4 == 0,
+                        "BNE target address must be aligned to 4 bytes"
+                    );
+                    self.pc = target_address.wrapping_sub(4); // subtract 4 because pc will be incremented after execute
+                }
             }
         };
     }

@@ -1,3 +1,7 @@
+use std::fs;
+
+use crate::Word;
+
 /// Sign-extend a value with the given number of bits to a 32-bit signed integer.
 pub fn sign_extend_u32(value: usize, bits: u32) -> i32 {
     assert!(bits <= 32, "bits must be less than or equal to 32");
@@ -6,49 +10,28 @@ pub fn sign_extend_u32(value: usize, bits: u32) -> i32 {
     ((value << shift) as i32) >> shift
 }
 
-#[macro_export]
-macro_rules! test_itype_instruction {
-    (
-        $name:ident,
-        instruction = $instr:expr,
-        rd = $rd:expr,
-        rs1 = $rs1:expr,
-        rs1_val = $rs1_val:expr,
-        imm = $imm:expr,
-        expected = $expected:expr
-    ) => {
-        #[test]
-        fn $name() {
-            let mut cpu: RISCV = RISCV::reset();
-            let mut mem: Memory = Memory::new();
+pub fn load_from_file() -> Vec<Word> {
+    let contents = fs::read("program.bin");
+    match contents {
+        Ok(bytes) => {
+            if bytes.len() % 4 != 0 {
+                panic!("File size is not a multiple of 4 bytes");
+            }
 
-            mem.store_word(0x0, $instr);
-
-            cpu.reg[$rs1] = $rs1_val;
-
-            cpu.execute(&mem);
-
-            assert_eq!(cpu.reg[$rd], $expected);
+            let mut words: Vec<Word> = Vec::new();
+            let mut i = 0;
+            while i + 4 <= bytes.len() {
+                let word = (bytes[i] as Word)
+                    | ((bytes[i + 1] as Word) << 8)
+                    | ((bytes[i + 2] as Word) << 16)
+                    | ((bytes[i + 3] as Word) << 24);
+                words.push(word);
+                i += 4;
+            }
+            words
         }
-    };
-}
-
-/// Converts simple I-type assembly into a 32-bit instruction word
-/// Usage: asm_itype!(ADDI, rd, rs1, imm)
-#[macro_export]
-macro_rules! asm_itype {
-    ($instr:ident, $rd:expr, $rs1:expr, $imm:expr) => {{
-        let opcode = 0b0010011u32;
-        let funct3 = match stringify!($instr) {
-            "ADDI" => 0b000,
-            "SLTI" => 0b010,
-            "SLTIU" => 0b011,
-            "ANDI" => 0b111,
-            "ORI" => 0b110,
-            "XORI" => 0b100,
-            _ => panic!("Unsupported I-type instruction: {}", stringify!($instr)),
-        };
-        let imm12 = ($imm as i32 & 0xFFF) as u32; // 12-bit signed immediate
-        (imm12 << 20) | (($rs1 as u32) << 15) | (funct3 << 12) | (($rd as u32) << 7) | opcode
-    }};
+        Err(err) => {
+            panic!("Failed to read file: {}", err);
+        }
+    }
 }

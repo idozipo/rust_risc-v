@@ -1,3 +1,4 @@
+mod assemble;
 mod risc_v;
 mod utils;
 

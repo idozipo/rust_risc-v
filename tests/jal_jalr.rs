@@ -464,3 +464,43 @@ fn jal_and_jalr_return_sequence() {
 
     assert_eq!(cpu.pc, 0x04); // returned to link address
 }
+
+#[test]
+fn jal_and_jalr_combined_with_regular_instructions() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // Program Instructions:
+    // 0x00: ADDI x10, x0, 5
+    // 0x04: ADDI x11, x0, 3
+    // 0x08: JAL x1, 0x10 (add_func)
+    // 0x0C: ADDI x0, x0, 0 (end marker)
+    // 0x10: ADD x10, x10, x11 (add_func)
+    // 0x14: JALR x0, x1, 0
+
+    let addi_a0_5: Word = 0b000000000101_00000_000_01010_0010011; // addi x10, x0, 5
+    let addi_a1_3: Word = 0b000000000011_00000_000_01011_0010011; // addi x11, x0, 3
+    let jal_to_add_func: Word = 0b0_0000000100_0_00000000_00001_1101111; // jal x1, 8
+    let end_marker: Word = 0b000000000000_00000_000_00000_0010011; // addi x0, x0, 0
+    let add_func: Word = 0b0000000_01011_01010_000_01010_0110011; // add x10, x10, x11
+    let jalr_return: Word = 0b000000000000_00001_000_00000_1100111; // jalr x0, x1, 0
+
+    mem.store_word(0x00, addi_a0_5);
+    mem.store_word(0x04, addi_a1_3);
+    mem.store_word(0x08, jal_to_add_func);
+    mem.store_word(0x0C, end_marker);
+    mem.store_word(0x10, add_func);
+    mem.store_word(0x14, jalr_return);
+
+    // Execute instructions
+    cpu.clock_cycle(&mem); // ADDI x10, x0, 5
+    cpu.clock_cycle(&mem); // ADDI x11, x0, 3
+    cpu.clock_cycle(&mem); // JAL to add_func
+    cpu.clock_cycle(&mem); // ADD x10, x10, x11
+    cpu.clock_cycle(&mem); // JALR return
+
+    // After execution, x10 should contain 8 (5 + 3)
+    assert_eq!(cpu.reg[10], 8);
+    assert_eq!(cpu.pc, 0x0C); // Returned to instruction after JAL
+    assert!(cpu.reg[1] == 0x0C); // Link register should have return address
+}

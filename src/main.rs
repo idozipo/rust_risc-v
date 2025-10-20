@@ -8,7 +8,7 @@ fn main() {
 
     let mut i: usize = 0;
     while i < instructions.len() {
-        println!("Instruction {}: 0x{:08b}", i, instructions[i]);
+        println!("addr 0x{:0X}: 0b{:032b}", 4 * i, instructions[i]);
         let current_instr: Word = instructions[i];
 
         mem.store_word(4 * i, current_instr);

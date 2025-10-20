@@ -273,6 +273,8 @@ pub enum Instruction {
     // BRANCH
     BEQ { offset: i32, rs1: usize, rs2: usize },
     BNE { offset: i32, rs1: usize, rs2: usize },
+    BLT { offset: i32, rs1: usize, rs2: usize },
+    BLTU { offset: i32, rs1: usize, rs2: usize },
     // TODO: implement these as we go along
 }
 
@@ -312,6 +314,8 @@ impl Instruction {
 
     const BEQ_FUNCT3: usize = 0b000;
     const BNE_FUNCT3: usize = 0b001;
+    const BLT_FUNCT3: usize = 0b100;
+    const BLTU_FUNCT3: usize = 0b110;
 
     const OPIMM_BITS: u32 = 12;
     const JAL_BITS: u32 = 21;
@@ -508,6 +512,10 @@ impl Instruction {
                     Instruction::BEQ { offset, rs1, rs2 }
                 } else if opcode == OPCODE::BRANCH && funct3 == Instruction::BNE_FUNCT3 {
                     Instruction::BNE { offset, rs1, rs2 }
+                } else if opcode == OPCODE::BRANCH && funct3 == Instruction::BLT_FUNCT3 {
+                    Instruction::BLT { offset, rs1, rs2 }
+                } else if opcode == OPCODE::BRANCH && funct3 == Instruction::BLTU_FUNCT3 {
+                    Instruction::BLTU { offset, rs1, rs2 }
                 } else {
                     panic!("unrecognized BType instruction")
                 }
@@ -714,6 +722,28 @@ impl RISCV {
                     assert!(
                         target_address % 4 == 0,
                         "BNE target address must be aligned to 4 bytes"
+                    );
+                    self.pc = target_address.wrapping_sub(4); // subtract 4 because pc will be incremented after execute
+                }
+            }
+            Instruction::BLT { offset, rs1, rs2 } => {
+                let target_address: u32 = self.pc.wrapping_add_signed(offset);
+
+                if (self.reg[rs1] as i32) < (self.reg[rs2] as i32) {
+                    assert!(
+                        target_address % 4 == 0,
+                        "BLT target address must be aligned to 4 bytes"
+                    );
+                    self.pc = target_address.wrapping_sub(4); // subtract 4 because pc will be incremented after execute
+                }
+            }
+            Instruction::BLTU { offset, rs1, rs2 } => {
+                let target_address: u32 = self.pc.wrapping_add_signed(offset);
+
+                if self.reg[rs1] < self.reg[rs2] {
+                    assert!(
+                        target_address % 4 == 0,
+                        "BLTU target address must be aligned to 4 bytes"
                     );
                     self.pc = target_address.wrapping_sub(4); // subtract 4 because pc will be incremented after execute
                 }

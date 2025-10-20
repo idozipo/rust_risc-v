@@ -425,3 +425,243 @@ fn beq_bne_control_flow_sequence() {
     assert_eq!(cpu.reg[11], 5);
     assert_eq!(cpu.pc, 0x14); // after executing addi at 0x10 -> PC points to 0x14
 }
+
+/* -------------------- BLT tests -------------------- */
+
+/// BLT instruction fetch
+#[test]
+fn blt_instruction_fetch() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // BLT x1, x2, +8 (funct3 = 100)
+    let blt_instruction: Word = 0b0_000000_00010_00001_100_0100_0_1100011;
+    mem.store_word(0x0, blt_instruction);
+
+    let instruction = cpu.fetch_instruction(&mem);
+    assert_eq!(instruction, blt_instruction);
+}
+
+/// BLT taken: x1 < x2
+#[test]
+fn blt_taken_forward() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    let blt_instr: Word = 0b0_000000_00010_00001_100_0100_0_1100011; // imm=+8
+    mem.store_word(0x0, blt_instr);
+
+    cpu.reg[1] = 3;
+    cpu.reg[2] = 10; // x1 < x2
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.pc, 8);
+}
+
+/// BLT not taken: x1 >= x2
+#[test]
+fn blt_not_taken_pc_increments() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    let blt_instr: Word = 0b0_000000_00010_00001_100_0100_0_1100011;
+    mem.store_word(0x0, blt_instr);
+
+    cpu.reg[1] = 9;
+    cpu.reg[2] = 2; // x1 > x2
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.pc, 4);
+}
+
+/// BLT backward jump
+#[test]
+fn blt_backward_jump() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    cpu.pc = 0x10;
+
+    let blt_instr: Word = 0b1_111111_00010_00001_100_1100_1_1100011; // imm = -8
+    mem.store_word(0x10, blt_instr);
+
+    cpu.reg[1] = 1;
+    cpu.reg[2] = 5; // 1 < 5 → taken
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.pc, 0x08);
+}
+
+/// BLT with negative numbers (signed comparison)
+#[test]
+fn blt_signed_negative_comparison() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    let blt_instr: Word = 0b0_000000_00010_00001_100_0100_0_1100011; // +8
+    mem.store_word(0x0, blt_instr);
+
+    cpu.reg[1] = (-5i32) as Word;
+    cpu.reg[2] = 3;
+
+    cpu.clock_cycle(&mem);
+
+    // -5 < 3 → taken
+    assert_eq!(cpu.pc, 8);
+}
+
+/// BLT not taken when equal
+#[test]
+fn blt_equal_not_taken() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    let blt_instr: Word = 0b0_000000_00010_00001_100_0100_0_1100011;
+    mem.store_word(0x0, blt_instr);
+
+    cpu.reg[1] = 7;
+    cpu.reg[2] = 7;
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.pc, 4);
+}
+
+/// BLT unaligned target → panic
+#[test]
+#[should_panic]
+fn blt_unaligned_target_panics() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // BLT x1, x2, +2 → unaligned
+    let blt_instr: Word = 0b0_000000_00010_00001_100_0001_0_1100011;
+    mem.store_word(0x0, blt_instr);
+
+    cpu.reg[1] = 1;
+    cpu.reg[2] = 2;
+
+    cpu.clock_cycle(&mem);
+}
+
+/* -------------------- BLTU tests -------------------- */
+
+/// BLTU instruction fetch
+#[test]
+fn bltu_instruction_fetch() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // BLTU x1, x2, +8 (funct3 = 110)
+    let bltu_instruction: Word = 0b0_000000_00010_00001_110_0100_0_1100011;
+    mem.store_word(0x0, bltu_instruction);
+
+    let instruction = cpu.fetch_instruction(&mem);
+    assert_eq!(instruction, bltu_instruction);
+}
+
+/// BLTU taken: unsigned less-than
+#[test]
+fn bltu_taken_forward() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    let bltu_instr: Word = 0b0_000000_00010_00001_110_0100_0_1100011; // imm=+8
+    mem.store_word(0x0, bltu_instr);
+
+    cpu.reg[1] = 5;
+    cpu.reg[2] = 10;
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.pc, 8);
+}
+
+/// BLTU not taken: unsigned greater-than
+#[test]
+fn bltu_not_taken_pc_increments() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    let bltu_instr: Word = 0b0_000000_00010_00001_110_0100_0_1100011;
+    mem.store_word(0x0, bltu_instr);
+
+    cpu.reg[1] = 0xFFFF_FFFF;
+    cpu.reg[2] = 0x0000_0001; // unsigned: 0xFFFF_FFFF > 0x1 → not taken
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.pc, 4);
+}
+
+/// BLTU backward branch
+#[test]
+fn bltu_backward_jump() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    cpu.pc = 0x10;
+
+    let bltu_instr: Word = 0b1_111111_00010_00001_110_1100_1_1100011;
+    mem.store_word(0x10, bltu_instr);
+
+    cpu.reg[1] = 0;
+    cpu.reg[2] = 5;
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.pc, 0x08);
+}
+
+/// BLTU large value comparison (unsigned wrap-around)
+#[test]
+fn bltu_large_unsigned_values() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    let bltu_instr: Word = 0b0_000000_00010_00001_110_0100_0_1100011;
+    mem.store_word(0x0, bltu_instr);
+
+    cpu.reg[1] = 0xFFFF_FFFE;
+    cpu.reg[2] = 0xFFFF_FFFF; // unsigned smaller → branch taken
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.pc, 8);
+}
+
+/// BLTU equal → not taken
+#[test]
+fn bltu_equal_not_taken() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    let bltu_instr: Word = 0b0_000000_00010_00001_110_0100_0_1100011;
+    mem.store_word(0x0, bltu_instr);
+
+    cpu.reg[1] = 123;
+    cpu.reg[2] = 123;
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.pc, 4);
+}
+
+/// BLTU unaligned target → panic
+#[test]
+#[should_panic]
+fn bltu_unaligned_target_panics() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    let bltu_instr: Word = 0b0_000000_00010_00001_110_0001_0_1100011; // imm=+2
+    mem.store_word(0x0, bltu_instr);
+
+    cpu.reg[1] = 1;
+    cpu.reg[2] = 5;
+
+    cpu.clock_cycle(&mem);
+}

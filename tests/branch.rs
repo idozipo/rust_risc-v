@@ -665,3 +665,243 @@ fn bltu_unaligned_target_panics() {
 
     cpu.clock_cycle(&mem);
 }
+
+/* -------------------- BGE tests -------------------- */
+
+/// BGE instruction fetch
+#[test]
+fn bge_instruction_fetch() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // BGE x1, x2, +8 (funct3 = 101)
+    let bge_instruction: Word = 0b0_000000_00010_00001_101_0100_0_1100011;
+    mem.store_word(0x0, bge_instruction);
+
+    let instruction = cpu.fetch_instruction(&mem);
+    assert_eq!(instruction, bge_instruction);
+}
+
+/// BGE taken: x1 >= x2
+#[test]
+fn bge_taken_forward() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    let bge_instr: Word = 0b0_000000_00010_00001_101_0100_0_1100011; // imm=+8
+    mem.store_word(0x0, bge_instr);
+
+    cpu.reg[1] = 10;
+    cpu.reg[2] = 3; // 10 >= 3 → taken
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.pc, 8);
+}
+
+/// BGE not taken: x1 < x2
+#[test]
+fn bge_not_taken_pc_increments() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    let bge_instr: Word = 0b0_000000_00010_00001_101_0100_0_1100011;
+    mem.store_word(0x0, bge_instr);
+
+    cpu.reg[1] = 2;
+    cpu.reg[2] = 9; // 2 < 9 → not taken
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.pc, 4);
+}
+
+/// BGE backward branch
+#[test]
+fn bge_backward_jump() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    cpu.pc = 0x10;
+
+    // BGE x1, x2, -8 → taken if x1 >= x2
+    let bge_instr: Word = 0b1_111111_00010_00001_101_1100_1_1100011;
+    mem.store_word(0x10, bge_instr);
+
+    cpu.reg[1] = 5;
+    cpu.reg[2] = 5; // equal → taken
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.pc, 0x08);
+}
+
+/// BGE with negative numbers (signed compare)
+#[test]
+fn bge_signed_negative_comparison() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    let bge_instr: Word = 0b0_000000_00010_00001_101_0100_0_1100011; // imm=+8
+    mem.store_word(0x0, bge_instr);
+
+    cpu.reg[1] = (-3i32) as Word;
+    cpu.reg[2] = (-5i32) as Word; // -3 >= -5 → taken
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.pc, 8);
+}
+
+/// BGE equal values → taken
+#[test]
+fn bge_equal_taken() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    let bge_instr: Word = 0b0_000000_00010_00001_101_0100_0_1100011;
+    mem.store_word(0x0, bge_instr);
+
+    cpu.reg[1] = 7;
+    cpu.reg[2] = 7;
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.pc, 8);
+}
+
+/// BGE unaligned target → panic
+#[test]
+#[should_panic]
+fn bge_unaligned_target_panics() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // BGE x1, x2, +2 → unaligned
+    let bge_instr: Word = 0b0_000000_00010_00001_101_0001_0_1100011;
+    mem.store_word(0x0, bge_instr);
+
+    cpu.reg[1] = 1;
+    cpu.reg[2] = 1;
+
+    cpu.clock_cycle(&mem);
+}
+
+/* -------------------- BGEU tests -------------------- */
+
+/// BGEU instruction fetch
+#[test]
+fn bgeu_instruction_fetch() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // BGEU x1, x2, +8 (funct3 = 111)
+    let bgeu_instruction: Word = 0b0_000000_00010_00001_111_0100_0_1100011;
+    mem.store_word(0x0, bgeu_instruction);
+
+    let instruction = cpu.fetch_instruction(&mem);
+    assert_eq!(instruction, bgeu_instruction);
+}
+
+/// BGEU taken: x1 >= x2 (unsigned)
+#[test]
+fn bgeu_taken_forward() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    let bgeu_instr: Word = 0b0_000000_00010_00001_111_0100_0_1100011;
+    mem.store_word(0x0, bgeu_instr);
+
+    cpu.reg[1] = 0xFFFF_FFFF;
+    cpu.reg[2] = 0x7FFF_FFFF; // unsigned: 0xFFFF_FFFF > 0x7FFF_FFFF → taken
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.pc, 8);
+}
+
+/// BGEU not taken: x1 < x2 (unsigned)
+#[test]
+fn bgeu_not_taken_pc_increments() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    let bgeu_instr: Word = 0b0_000000_00010_00001_111_0100_0_1100011;
+    mem.store_word(0x0, bgeu_instr);
+
+    cpu.reg[1] = 0x0000_0001;
+    cpu.reg[2] = 0xFFFF_FFFF; // unsigned: smaller → not taken
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.pc, 4);
+}
+
+/// BGEU backward branch
+#[test]
+fn bgeu_backward_jump() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    cpu.pc = 0x10;
+
+    let bgeu_instr: Word = 0b1_111111_00010_00001_111_1100_1_1100011; // imm=-8, funct3=111
+    mem.store_word(0x10, bgeu_instr);
+
+    cpu.reg[1] = 5;
+    cpu.reg[2] = 3; // unsigned: 5 >= 3 → taken
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.pc, 0x08);
+}
+
+/// BGEU equal values → taken
+#[test]
+fn bgeu_equal_taken() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    let bgeu_instr: Word = 0b0_000000_00010_00001_111_0100_0_1100011;
+    mem.store_word(0x0, bgeu_instr);
+
+    cpu.reg[1] = 0xDEAD_BEEF;
+    cpu.reg[2] = 0xDEAD_BEEF;
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.pc, 8);
+}
+
+/// BGEU unsigned wrap-around case
+#[test]
+fn bgeu_unsigned_wraparound() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    let bgeu_instr: Word = 0b0_000000_00010_00001_111_0100_0_1100011;
+    mem.store_word(0x0, bgeu_instr);
+
+    cpu.reg[1] = 0xFFFF_FFFE;
+    cpu.reg[2] = 0x0000_0002; // unsigned greater → taken
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.pc, 8);
+}
+
+/// BGEU unaligned target → panic
+#[test]
+#[should_panic]
+fn bgeu_unaligned_target_panics() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    let bgeu_instr: Word = 0b0_000000_00010_00001_111_0001_0_1100011; // imm=+2
+    mem.store_word(0x0, bgeu_instr);
+
+    cpu.reg[1] = 0xFFFF_FFFF;
+    cpu.reg[2] = 0x0000_0001;
+
+    cpu.clock_cycle(&mem);
+}

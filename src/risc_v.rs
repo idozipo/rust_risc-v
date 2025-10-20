@@ -275,6 +275,8 @@ pub enum Instruction {
     BNE { offset: i32, rs1: usize, rs2: usize },
     BLT { offset: i32, rs1: usize, rs2: usize },
     BLTU { offset: i32, rs1: usize, rs2: usize },
+    BGE { offset: i32, rs1: usize, rs2: usize },
+    BGEU { offset: i32, rs1: usize, rs2: usize },
     // TODO: implement these as we go along
 }
 
@@ -316,6 +318,8 @@ impl Instruction {
     const BNE_FUNCT3: usize = 0b001;
     const BLT_FUNCT3: usize = 0b100;
     const BLTU_FUNCT3: usize = 0b110;
+    const BGE_FUNCT3: usize = 0b101;
+    const BGEU_FUNCT3: usize = 0b111;
 
     const OPIMM_BITS: u32 = 12;
     const JAL_BITS: u32 = 21;
@@ -516,6 +520,10 @@ impl Instruction {
                     Instruction::BLT { offset, rs1, rs2 }
                 } else if opcode == OPCODE::BRANCH && funct3 == Instruction::BLTU_FUNCT3 {
                     Instruction::BLTU { offset, rs1, rs2 }
+                } else if opcode == OPCODE::BRANCH && funct3 == Instruction::BGE_FUNCT3 {
+                    Instruction::BGE { offset, rs1, rs2 }
+                } else if opcode == OPCODE::BRANCH && funct3 == Instruction::BGEU_FUNCT3 {
+                    Instruction::BGEU { offset, rs1, rs2 }
                 } else {
                     panic!("unrecognized BType instruction")
                 }
@@ -526,9 +534,9 @@ impl Instruction {
 }
 
 pub struct RISCV {
-    pub reg: [Word; XLEN], // 32 registers which are 32 bits wide
-    pub pc: Word,          // Program counter (holds current instruction address)
-    current_instruction: Word,
+    pub reg: [Word; XLEN],     // 32 registers which are 32 bits wide
+    pub pc: Word,              // Program counter (holds current instruction address)
+    current_instruction: Word, // holds the current instruction being executed
 }
 
 impl RISCV {
@@ -744,6 +752,28 @@ impl RISCV {
                     assert!(
                         target_address % 4 == 0,
                         "BLTU target address must be aligned to 4 bytes"
+                    );
+                    self.pc = target_address.wrapping_sub(4); // subtract 4 because pc will be incremented after execute
+                }
+            }
+            Instruction::BGE { offset, rs1, rs2 } => {
+                let target_address: u32 = self.pc.wrapping_add_signed(offset);
+
+                if (self.reg[rs1] as i32) >= (self.reg[rs2] as i32) {
+                    assert!(
+                        target_address % 4 == 0,
+                        "BGE target address must be aligned to 4 bytes"
+                    );
+                    self.pc = target_address.wrapping_sub(4); // subtract 4 because pc will be incremented after execute
+                }
+            }
+            Instruction::BGEU { offset, rs1, rs2 } => {
+                let target_address: u32 = self.pc.wrapping_add_signed(offset);
+
+                if self.reg[rs1] >= self.reg[rs2] {
+                    assert!(
+                        target_address % 4 == 0,
+                        "BGEU target address must be aligned to 4 bytes"
                     );
                     self.pc = target_address.wrapping_sub(4); // subtract 4 because pc will be incremented after execute
                 }

@@ -13,7 +13,7 @@ fn lw_instruction_fetch() {
     let lw_instruction: Word = 0b000000000000_00001_010_00101_0000011;
     mem.store_word(0x0, lw_instruction);
 
-    let instruction = cpu.fetch_instruction(&mem);
+    let instruction = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, lw_instruction);
 }
 
@@ -31,7 +31,7 @@ fn lw_basic_load() {
     cpu.reg[1] = 0x100; // base
     mem.store_word(0x100, 0xDEADBEEF);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[5], 0xDEADBEEF);
     assert_eq!(cpu.pc, 4);
@@ -50,7 +50,7 @@ fn lw_with_positive_offset() {
     cpu.reg[2] = 0x200;
     mem.store_word(0x208, 0x12345678);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[6], 0x12345678);
     assert_eq!(cpu.pc, 4);
@@ -70,7 +70,7 @@ fn lw_with_negative_offset() {
     cpu.reg[3] = 0x300;
     mem.store_word(0x2FC, 0xCAFEBABE);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[7], 0xCAFEBABE);
     assert_eq!(cpu.pc, 4);
@@ -89,7 +89,7 @@ fn lw_sign_extension_check() {
     cpu.reg[4] = 0x400;
     mem.store_word(0x400, 0x8000_0001);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // LW loads full 32-bit word as-is, no sign-extension change
     assert_eq!(cpu.reg[8], 0x8000_0001);
@@ -109,7 +109,7 @@ fn lw_unaligned_address_panics() {
     cpu.reg[5] = 0x100; // base
     mem.store_word(0x102, 0x12345678);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 }
 
 /// LW overwriting same register as base (x1 used as base and destination)
@@ -125,7 +125,7 @@ fn lw_overwrite_base_register() {
     cpu.reg[1] = 0x500;
     mem.store_word(0x500, 0xFACE_FEED);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[1], 0xFACE_FEED);
     assert_eq!(cpu.pc, 4);
@@ -144,7 +144,7 @@ fn lw_to_x0_does_not_write() {
     cpu.reg[1] = 0x600;
     mem.store_word(0x600, 0xABCD1234);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // x0 always stays zero
     assert_eq!(cpu.reg[0], 0);
@@ -168,8 +168,8 @@ fn lw_then_addi_dependency() {
     cpu.reg[1] = 0x700;
     mem.store_word(0x700, 0x10);
 
-    cpu.clock_cycle(&mem); // LW
-    cpu.clock_cycle(&mem); // ADDI
+    cpu.clock_cycle(&mut mem); // LW
+    cpu.clock_cycle(&mut mem); // ADDI
 
     assert_eq!(cpu.reg[10], 0x10);
     assert_eq!(cpu.reg[11], 0x15); // 0x10 + 5
@@ -189,7 +189,7 @@ fn lh_instruction_fetch() {
     let lh_instr: Word = 0b000000000000_00001_001_00101_0000011;
     mem.store_word(0x0, lh_instr);
 
-    let instruction = cpu.fetch_instruction(&mem);
+    let instruction = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, lh_instr);
 }
 
@@ -207,7 +207,7 @@ fn lh_basic_load_positive() {
     // Memory at 0x100 = 0x1234 (little-endian)
     mem.store_halfword(0x100, 0x1234);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 0x1234 stays as 0x00001234 after sign extension
     assert_eq!(cpu.reg[6], 0x0000_1234);
@@ -227,7 +227,7 @@ fn lh_sign_extension_negative() {
     cpu.reg[3] = 0x200;
     mem.store_halfword(0x200, 0xF234); // negative 16-bit value
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // Sign-extended: 0xFFFF_F234
     assert_eq!(cpu.reg[7], 0xFFFF_F234);
@@ -247,7 +247,7 @@ fn lh_with_positive_offset() {
     cpu.reg[4] = 0x300;
     mem.store_halfword(0x304, 0x7FFF);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[8], 0x0000_7FFF);
     assert_eq!(cpu.pc, 4);
@@ -266,7 +266,7 @@ fn lh_with_negative_offset() {
     cpu.reg[5] = 0x400;
     mem.store_halfword(0x3FE, 0xBEEF);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 0xBEEF sign-extends → 0xFFFF_BEEF
     assert_eq!(cpu.reg[9], 0xFFFF_BEEF);
@@ -287,7 +287,7 @@ fn lh_unaligned_address_panics() {
     cpu.reg[6] = 0x100;
     mem.store_halfword(0x101, 0xABCD);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 }
 
 /// LH destination is x0 → should not write
@@ -303,7 +303,7 @@ fn lh_to_x0_does_not_write() {
     cpu.reg[7] = 0x500;
     mem.store_halfword(0x500, 0xAAAA);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[0], 0);
     assert_eq!(cpu.pc, 4);
@@ -322,7 +322,7 @@ fn lhu_instruction_fetch() {
     let lhu_instr: Word = 0b000000000000_00001_101_00101_0000011;
     mem.store_word(0x0, lhu_instr);
 
-    let instruction = cpu.fetch_instruction(&mem);
+    let instruction = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, lhu_instr);
 }
 
@@ -339,7 +339,7 @@ fn lhu_basic_load_positive() {
     cpu.reg[2] = 0x600;
     mem.store_halfword(0x600, 0x1234);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // Zero-extended
     assert_eq!(cpu.reg[6], 0x0000_1234);
@@ -359,7 +359,7 @@ fn lhu_zero_extension_from_negative() {
     cpu.reg[3] = 0x700;
     mem.store_halfword(0x700, 0xF234); // 16-bit negative
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // Zero-extended → 0x0000_F234
     assert_eq!(cpu.reg[7], 0x0000_F234);
@@ -379,7 +379,7 @@ fn lhu_with_positive_offset() {
     cpu.reg[4] = 0x800;
     mem.store_halfword(0x806, 0xBEEF);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[8], 0x0000_BEEF);
     assert_eq!(cpu.pc, 4);
@@ -399,7 +399,7 @@ fn lhu_unaligned_address_panics() {
     cpu.reg[5] = 0x900;
     mem.store_halfword(0x903, 0xABCD);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 }
 
 /// LHU destination is x0 → should not write
@@ -415,7 +415,7 @@ fn lhu_to_x0_does_not_write() {
     cpu.reg[6] = 0xA00;
     mem.store_halfword(0xA00, 0x1111);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[0], 0);
     assert_eq!(cpu.pc, 4);
@@ -434,7 +434,7 @@ fn lb_instruction_fetch() {
     let lb_instr: Word = 0b000000000000_00001_000_00101_0000011;
     mem.store_word(0x0, lb_instr);
 
-    let instruction = cpu.fetch_instruction(&mem);
+    let instruction = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, lb_instr);
 }
 
@@ -451,7 +451,7 @@ fn lb_basic_load_positive() {
     cpu.reg[2] = 0x100;
     mem[0x100] = 0x12;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 0x12 sign-extends to 0x0000_0012
     assert_eq!(cpu.reg[6], 0x0000_0012);
@@ -471,7 +471,7 @@ fn lb_sign_extension_negative() {
     cpu.reg[3] = 0x200;
     mem[0x200] = 0xF2; // negative 8-bit value
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // Sign-extended: 0xFFFF_FFF2
     assert_eq!(cpu.reg[7], 0xFFFF_FFF2);
@@ -491,7 +491,7 @@ fn lb_with_positive_offset() {
     cpu.reg[4] = 0x300;
     mem[0x303] = 0x7F;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[8], 0x0000_007F);
     assert_eq!(cpu.pc, 4);
@@ -510,7 +510,7 @@ fn lb_with_negative_offset() {
     cpu.reg[5] = 0x400;
     mem[0x3FF] = 0x80; // negative 8-bit value (-128)
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // Sign-extended: 0xFFFF_FF80
     assert_eq!(cpu.reg[9], 0xFFFF_FF80);
@@ -530,7 +530,7 @@ fn lb_to_x0_does_not_write() {
     cpu.reg[6] = 0x500;
     mem[0x500] = 0xAB;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[0], 0);
     assert_eq!(cpu.pc, 4);
@@ -549,7 +549,7 @@ fn lbu_instruction_fetch() {
     let lbu_instr: Word = 0b000000000000_00001_100_00101_0000011;
     mem.store_word(0x0, lbu_instr);
 
-    let instruction = cpu.fetch_instruction(&mem);
+    let instruction = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, lbu_instr);
 }
 
@@ -566,7 +566,7 @@ fn lbu_basic_load_positive() {
     cpu.reg[2] = 0x600;
     mem[0x600] = 0x12;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // Zero-extended
     assert_eq!(cpu.reg[6], 0x0000_0012);
@@ -586,7 +586,7 @@ fn lbu_zero_extension_from_negative() {
     cpu.reg[3] = 0x700;
     mem[0x700] = 0xF2; // 0xF2 = -14 signed
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // Zero-extended → 0x0000_00F2
     assert_eq!(cpu.reg[7], 0x0000_00F2);
@@ -606,7 +606,7 @@ fn lbu_with_positive_offset() {
     cpu.reg[4] = 0x800;
     mem[0x805] = 0xA5;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[8], 0x0000_00A5);
     assert_eq!(cpu.pc, 4);
@@ -625,7 +625,7 @@ fn lbu_to_x0_does_not_write() {
     cpu.reg[6] = 0xA00;
     mem[0xA00] = 0x99;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[0], 0);
     assert_eq!(cpu.pc, 4);

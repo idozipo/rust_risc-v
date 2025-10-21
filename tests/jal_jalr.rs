@@ -14,7 +14,7 @@ fn jal_instruction_fetch() {
     let jal_instruction: Word = 0b000000000001_00000000_00001_1101111;
     mem.store_word(0x0, jal_instruction);
 
-    let instruction = cpu.fetch_instruction(&mem);
+    let instruction = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, jal_instruction);
 }
 
@@ -29,7 +29,7 @@ fn jal_basic_forward_jump() {
     let jal_instruction: Word = 0b0_0000000100_0_00000000_00001_1101111; // imm=8
     mem.store_word(0x0, jal_instruction);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // After execution:
     // x1 = return address = PC + 4 = 4
@@ -54,7 +54,7 @@ fn jal_backward_jump() {
     let jal_instruction: Word = 0b1_1111111100_1_11111111_00001_1101111; // imm = -8
     mem.store_word(0x10, jal_instruction);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 0x08);
     assert_eq!(cpu.reg[1], 0x14); // return address = 0x10 + 4
@@ -70,7 +70,7 @@ fn jal_to_nonzero_rd() {
     let jal_instruction: Word = 0b0_0000000110_0_00000000_00101_1101111;
     mem.store_word(0x0, jal_instruction);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 12);
     assert_eq!(cpu.reg[5], 4);
@@ -86,7 +86,7 @@ fn jal_rd_x0_no_link_written() {
     let jal_instruction: Word = 0b0_0000001000_0_00000000_00000_1101111;
     mem.store_word(0x0, jal_instruction);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 16);
     assert_eq!(cpu.reg[0], 0);
@@ -102,7 +102,7 @@ fn jal_large_forward_offset() {
     let jal_instruction: Word = 0b0_1000000000_0_00000000_00001_1101111;
     mem.store_word(0x0, jal_instruction);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 0x400);
     assert_eq!(cpu.reg[1], 4);
@@ -121,7 +121,7 @@ fn jal_large_negative_offset() {
     let jal_instruction: Word = 0b1_1100000000_1_11111111_00001_1101111;
     mem.store_word(0x800, jal_instruction);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 0x600); // 0x800 - 0x200
     assert_eq!(cpu.reg[1], 0x804); // return address
@@ -155,9 +155,9 @@ fn jal_with_lui_interaction() {
     let lui_x4 = 0b00000000000000000011_00100_0110111;
     mem.store_word(0x0C, lui_x4);
 
-    cpu.clock_cycle(&mem); // LUI x2
-    cpu.clock_cycle(&mem); // JAL (to 0x0C)
-    cpu.clock_cycle(&mem); // LUI x4
+    cpu.clock_cycle(&mut mem); // LUI x2
+    cpu.clock_cycle(&mut mem); // JAL (to 0x0C)
+    cpu.clock_cycle(&mut mem); // LUI x4
 
     assert_eq!(cpu.reg[2], 0x1000);
     assert_eq!(cpu.reg[3], 0); // skipped
@@ -189,9 +189,9 @@ fn jal_with_auipc_interaction() {
     let lui_x8 = 0b00000000000000000011_01000_0110111;
     mem.store_word(0x0C, lui_x8);
 
-    cpu.clock_cycle(&mem); // AUIPC
-    cpu.clock_cycle(&mem); // JAL
-    cpu.clock_cycle(&mem); // LUI x8
+    cpu.clock_cycle(&mut mem); // AUIPC
+    cpu.clock_cycle(&mut mem); // JAL
+    cpu.clock_cycle(&mut mem); // LUI x8
 
     assert_eq!(cpu.reg[5], 0x1000);
     assert_eq!(cpu.reg[6], 0x08); // return address
@@ -211,7 +211,7 @@ fn jal_illegal_unaligned_jump_panics() {
     let jal_instruction: Word = 0b0_0000000001_0_00000000_00001_1101111;
     mem.store_word(0x0, jal_instruction);
 
-    cpu.clock_cycle(&mem); // Emulator should panic or raise an exception
+    cpu.clock_cycle(&mut mem); // Emulator should panic or raise an exception
 }
 
 /// Test that a JALR instruction can be fetched correctly
@@ -227,7 +227,7 @@ fn jalr_instruction_fetch() {
     let jalr_instruction: Word = 0b000000001000_00010_000_00001_1100111;
     mem.store_word(0x0, jalr_instruction);
 
-    let instruction = cpu.fetch_instruction(&mem);
+    let instruction = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, jalr_instruction);
 }
 
@@ -244,7 +244,7 @@ fn jalr_basic_forward_jump() {
     let jalr_instruction: Word = 0b000000001100_00010_000_00001_1100111;
     mem.store_word(0x0, jalr_instruction);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // After execution:
     // x1 = return address = PC + 4 = 4
@@ -266,7 +266,7 @@ fn jalr_negative_offset() {
     let jalr_instruction: Word = 0b111111111000_00010_000_00001_1100111;
     mem.store_word(0x100, jalr_instruction);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 0x118);
     assert_eq!(cpu.reg[1], 0x104);
@@ -284,7 +284,7 @@ fn jalr_to_nonzero_rd() {
     let jalr_instruction: Word = 0b000000010000_00101_000_01010_1100111;
     mem.store_word(0x0, jalr_instruction);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 0x90);
     assert_eq!(cpu.reg[10], 4);
@@ -302,7 +302,7 @@ fn jalr_rd_x0_no_link_written() {
     let jalr_instruction: Word = 0b000000001000_00001_000_00000_1100111;
     mem.store_word(0x0, jalr_instruction);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 0x208);
     assert_eq!(cpu.reg[0], 0); // still zero
@@ -320,7 +320,7 @@ fn jalr_alignment_mask() {
     let jalr_instruction: Word = 0b000000001000_00010_000_00001_1100111;
     mem.store_word(0x0, jalr_instruction);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 108); // aligned down
     assert_eq!(cpu.reg[1], 4);
@@ -351,9 +351,9 @@ fn jalr_and_jal_combined() {
     mem.store_word(0x0C, lui_x4);
     mem.store_word(0x10, jalr_x5);
 
-    cpu.clock_cycle(&mem); // JAL
-    cpu.clock_cycle(&mem); // LUI x4
-    cpu.clock_cycle(&mem); // JALR x5, x4, 4
+    cpu.clock_cycle(&mut mem); // JAL
+    cpu.clock_cycle(&mut mem); // LUI x4
+    cpu.clock_cycle(&mut mem); // JALR x5, x4, 4
 
     assert_eq!(cpu.reg[1], 0x04);
     assert_eq!(cpu.reg[4], 0x3000);
@@ -382,9 +382,9 @@ fn jalr_with_lui_interaction() {
     mem.store_word(0x08, lui_x3);
     mem.store_word(0x100C, lui_x4);
 
-    cpu.clock_cycle(&mem); // LUI
-    cpu.clock_cycle(&mem); // JALR
-    cpu.clock_cycle(&mem); // LUI at 0x100C
+    cpu.clock_cycle(&mut mem); // LUI
+    cpu.clock_cycle(&mut mem); // JALR
+    cpu.clock_cycle(&mut mem); // LUI at 0x100C
 
     assert_eq!(cpu.reg[2], 0x1000);
     assert_eq!(cpu.reg[3], 0);
@@ -414,9 +414,9 @@ fn jalr_with_auipc_interaction() {
     mem.store_word(0x08, lui_x7);
     mem.store_word(0x1008, lui_x8);
 
-    cpu.clock_cycle(&mem); // AUIPC
-    cpu.clock_cycle(&mem); // JALR
-    cpu.clock_cycle(&mem); // LUI x8
+    cpu.clock_cycle(&mut mem); // AUIPC
+    cpu.clock_cycle(&mut mem); // JALR
+    cpu.clock_cycle(&mut mem); // LUI x8
 
     assert_eq!(cpu.reg[5], 0x1000);
     assert_eq!(cpu.reg[6], 0x08);
@@ -438,7 +438,7 @@ fn jalr_illegal_unaligned_target_panics() {
     let jalr_instruction: Word = 0b000000000000_00010_000_00001_1100111;
     mem.store_word(0x0, jalr_instruction);
 
-    cpu.clock_cycle(&mem); // Emulator should panic due to unaligned PC
+    cpu.clock_cycle(&mut mem); // Emulator should panic due to unaligned PC
 }
 
 /// Full chain JAL + JALR return test
@@ -459,8 +459,8 @@ fn jal_and_jalr_return_sequence() {
     mem.store_word(0x00, jal);
     mem.store_word(0x0C, jalr);
 
-    cpu.clock_cycle(&mem); // JAL
-    cpu.clock_cycle(&mem); // JALR (return)
+    cpu.clock_cycle(&mut mem); // JAL
+    cpu.clock_cycle(&mut mem); // JALR (return)
 
     assert_eq!(cpu.pc, 0x04); // returned to link address
 }
@@ -493,11 +493,11 @@ fn jal_and_jalr_combined_with_regular_instructions() {
     mem.store_word(0x14, jalr_return);
 
     // Execute instructions
-    cpu.clock_cycle(&mem); // ADDI x10, x0, 5
-    cpu.clock_cycle(&mem); // ADDI x11, x0, 3
-    cpu.clock_cycle(&mem); // JAL to add_func
-    cpu.clock_cycle(&mem); // ADD x10, x10, x11
-    cpu.clock_cycle(&mem); // JALR return
+    cpu.clock_cycle(&mut mem); // ADDI x10, x0, 5
+    cpu.clock_cycle(&mut mem); // ADDI x11, x0, 3
+    cpu.clock_cycle(&mut mem); // JAL to add_func
+    cpu.clock_cycle(&mut mem); // ADD x10, x10, x11
+    cpu.clock_cycle(&mut mem); // JALR return
 
     // After execution, x10 should contain 8 (5 + 3)
     assert_eq!(cpu.reg[10], 8);

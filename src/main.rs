@@ -18,7 +18,7 @@ fn main() {
 
     let mut i: usize = 0;
     while i < instructions.len() {
-        cpu.clock_cycle(&mem);
+        cpu.clock_cycle(&mut mem);
 
         i += 1;
     }

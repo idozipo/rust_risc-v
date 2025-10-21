@@ -299,6 +299,9 @@ pub enum Instruction {
     LHU { offset: i32, rs1: usize, rd: usize },
     LB { offset: i32, rs1: usize, rd: usize },
     LBU { offset: i32, rs1: usize, rd: usize },
+    SW { offset: i32, rs1: usize, rs2: usize },
+    SH { offset: i32, rs1: usize, rs2: usize },
+    SB { offset: i32, rs1: usize, rs2: usize },
     // TODO: implement these as we go along
 }
 
@@ -348,6 +351,10 @@ impl Instruction {
     const LHU_FUNCT3: usize = 0b101;
     const LB_FUNCT3: usize = 0b000;
     const LBU_FUNCT3: usize = 0b100;
+
+    const SW_FUNCT3: usize = 0b010;
+    const SH_FUNCT3: usize = 0b001;
+    const SB_FUNCT3: usize = 0b000;
 
     const OPIMM_BITS: u32 = 12;
     const JAL_BITS: u32 = 21;
@@ -573,7 +580,26 @@ impl Instruction {
                     panic!("unrecognized BType instruction")
                 }
             }
-            _ => todo!("only IType instructions are implemented so far"),
+            EncodingVariant::SType {
+                imm_11_5,
+                rs2,
+                rs1,
+                funct3,
+                imm_4_0,
+                opcode,
+            } => {
+                let offset: i32 =
+                    sign_extend_u32((imm_11_5 << 5) | imm_4_0, Instruction::STORE_BITS);
+                if opcode == OPCODE::STORE && funct3 == Instruction::SW_FUNCT3 {
+                    Instruction::SW { offset, rs1, rs2 }
+                } else if opcode == OPCODE::STORE && funct3 == Instruction::SH_FUNCT3 {
+                    Instruction::SH { offset, rs1, rs2 }
+                } else if opcode == OPCODE::STORE && funct3 == Instruction::SB_FUNCT3 {
+                    Instruction::SB { offset, rs1, rs2 }
+                } else {
+                    panic!("unrecognized SType instruction")
+                }
+            } // _ => todo!("only  instructions are implemented so far"),
         }
     }
 }
@@ -601,7 +627,7 @@ impl RISCV {
         }
     }
 
-    pub fn clock_cycle(&mut self, mem: &Memory) {
+    pub fn clock_cycle(&mut self, mem: &mut Memory) {
         self.fetch_instruction(mem);
         self.execute(mem);
         self.increment_pc();
@@ -618,7 +644,7 @@ impl RISCV {
         self.pc = self.pc.wrapping_add(4); // increment pc by 4 (size of instruction word)
     }
 
-    pub fn execute(&mut self, mem: &Memory) {
+    pub fn execute(&mut self, mem: &mut Memory) {
         let encoding: EncodingVariant = EncodingVariant::get_encoding(self.current_instruction);
         let parsed_instruction: Instruction = Instruction::parse_instruction(encoding);
         match parsed_instruction {
@@ -865,6 +891,21 @@ impl RISCV {
                 if rd != 0 {
                     self.reg[rd] = loaded_byte as u32;
                 }
+            }
+            Instruction::SW { offset, rs1, rs2 } => {
+                let target_address: Word = self.reg[rs1].wrapping_add_signed(offset);
+                let value: Word = self.reg[rs2];
+                mem.store_word(target_address as usize, value);
+            }
+            Instruction::SH { offset, rs1, rs2 } => {
+                let target_address: Word = self.reg[rs1].wrapping_add_signed(offset);
+                let value: HalfWord = self.reg[rs2] as HalfWord;
+                mem.store_halfword(target_address as usize, value);
+            }
+            Instruction::SB { offset, rs1, rs2 } => {
+                let target_address: Word = self.reg[rs1].wrapping_add_signed(offset);
+                let value: Byte = self.reg[rs2] as Byte;
+                mem[target_address as usize] = value;
             }
         };
     }

@@ -10,7 +10,7 @@ fn beq_instruction_fetch() {
     let beq_instruction: Word = 0b0_000000_00010_00001_000_0100_0_1100011;
     mem.store_word(0x0, beq_instruction);
 
-    let instruction = cpu.fetch_instruction(&mem);
+    let instruction = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, beq_instruction);
 }
 
@@ -27,7 +27,7 @@ fn beq_basic_taken_forward() {
     cpu.reg[1] = 5;
     cpu.reg[2] = 5;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // branch taken -> PC = 0 + 8
     assert_eq!(cpu.pc, 8);
@@ -46,7 +46,7 @@ fn beq_not_taken_pc_increments() {
     cpu.reg[1] = 1;
     cpu.reg[2] = 2;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // not taken -> PC = 0 + 4
     assert_eq!(cpu.pc, 4);
@@ -68,7 +68,7 @@ fn beq_backward_jump() {
     cpu.reg[1] = 7;
     cpu.reg[2] = 7; // equal -> branch taken to 0x08
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 0x08);
 }
@@ -83,7 +83,7 @@ fn beq_x0_x0_always_taken() {
     let beq_instr: Word = 0b0_000000_00000_00000_000_0100_0_1100011;
     mem.store_word(0x0, beq_instr);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 8);
 }
@@ -100,7 +100,7 @@ fn beq_large_forward_offset() {
 
     cpu.reg[1] = 0x42; // equal with itself, taken
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 0x400); // jumped to +1024
 }
@@ -118,7 +118,7 @@ fn beq_large_backward_offset() {
 
     cpu.reg[1] = 0x7;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 0x600);
 }
@@ -152,9 +152,9 @@ fn beq_with_lui_interaction() {
     cpu.reg[3] = 9;
     cpu.reg[4] = 9;
 
-    cpu.clock_cycle(&mem); // LUI x2
-    cpu.clock_cycle(&mem); // BEQ (taken -> jump to 0x0C)
-    cpu.clock_cycle(&mem); // LUI x6
+    cpu.clock_cycle(&mut mem); // LUI x2
+    cpu.clock_cycle(&mut mem); // BEQ (taken -> jump to 0x0C)
+    cpu.clock_cycle(&mut mem); // LUI x6
 
     assert_eq!(cpu.reg[2], 0x1000);
     assert_eq!(cpu.reg[5], 0); // skipped
@@ -190,9 +190,9 @@ fn beq_with_auipc_interaction() {
     cpu.reg[6] = 0x12;
     cpu.reg[7] = 0x12;
 
-    cpu.clock_cycle(&mem); // AUIPC
-    cpu.clock_cycle(&mem); // BEQ taken
-    cpu.clock_cycle(&mem); // LUI x9
+    cpu.clock_cycle(&mut mem); // AUIPC
+    cpu.clock_cycle(&mut mem); // BEQ taken
+    cpu.clock_cycle(&mut mem); // LUI x9
 
     assert_eq!(cpu.reg[5], 0x1000);
     assert_eq!(cpu.reg[8], 0); // skipped
@@ -212,7 +212,7 @@ fn beq_unaligned_target_panics() {
     mem.store_word(0x0, beq_unaligned);
 
     cpu.reg[1] = 1; // equal -> branch taken to 0x2 (unaligned for 32-bit non-compressed)
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 }
 
 /* -------------------- BNE tests -------------------- */
@@ -227,7 +227,7 @@ fn bne_instruction_fetch() {
     let bne_instruction: Word = 0b0_000000_00100_00011_001_0100_0_1100011;
     mem.store_word(0x0, bne_instruction);
 
-    let instruction = cpu.fetch_instruction(&mem);
+    let instruction = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, bne_instruction);
 }
 
@@ -243,7 +243,7 @@ fn bne_basic_taken_forward() {
     cpu.reg[3] = 1;
     cpu.reg[4] = 2; // not equal -> taken
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 8);
 }
@@ -260,7 +260,7 @@ fn bne_not_taken_pc_increments() {
     cpu.reg[3] = 5;
     cpu.reg[4] = 5; // equal -> not taken
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 4);
 }
@@ -280,7 +280,7 @@ fn bne_backward_jump() {
     cpu.reg[3] = 1;
     cpu.reg[4] = 2; // not equal -> branch taken backward
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 0x08);
 }
@@ -297,7 +297,7 @@ fn bne_x0_nonzero_taken() {
 
     cpu.reg[5] = 7; // non-zero -> not equal to x0 -> taken
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 8);
 }
@@ -314,7 +314,7 @@ fn bne_large_forward_offset() {
 
     cpu.reg[3] = 0x1;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // BNE with rs1==rs2 not taken -> PC=4
     assert_eq!(cpu.pc, 4);
@@ -334,7 +334,7 @@ fn bne_large_backward_offset() {
 
     cpu.reg[3] = 0x42;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 0x600);
 }
@@ -366,9 +366,9 @@ fn bne_with_lui_interaction() {
     cpu.reg[3] = 1;
     cpu.reg[4] = 2; // not equal -> branch taken
 
-    cpu.clock_cycle(&mem); // LUI x2
-    cpu.clock_cycle(&mem); // BNE -> taken (to 0x0C)
-    cpu.clock_cycle(&mem); // LUI x6
+    cpu.clock_cycle(&mut mem); // LUI x2
+    cpu.clock_cycle(&mut mem); // BNE -> taken (to 0x0C)
+    cpu.clock_cycle(&mut mem); // LUI x6
 
     assert_eq!(cpu.reg[2], 0x1000);
     assert_eq!(cpu.reg[5], 0); // skipped
@@ -388,7 +388,7 @@ fn bne_unaligned_target_panics() {
     mem.store_word(0x0, bne_unaligned);
 
     cpu.reg[3] = 1;
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 }
 
 /// Combined test: BEQ and BNE sequence altering control flow
@@ -416,10 +416,10 @@ fn beq_bne_control_flow_sequence() {
     mem.store_word(0x0C, addi_x11_0);
     mem.store_word(0x10, addi_x11_5);
 
-    cpu.clock_cycle(&mem); // addi x10 = 1
-    cpu.clock_cycle(&mem); // beq -> not taken (x10 != x0) -> PC = 0x08
-    cpu.clock_cycle(&mem); // bne -> taken -> PC = 0x10
-    cpu.clock_cycle(&mem); // addi x11 = 5
+    cpu.clock_cycle(&mut mem); // addi x10 = 1
+    cpu.clock_cycle(&mut mem); // beq -> not taken (x10 != x0) -> PC = 0x08
+    cpu.clock_cycle(&mut mem); // bne -> taken -> PC = 0x10
+    cpu.clock_cycle(&mut mem); // addi x11 = 5
 
     assert_eq!(cpu.reg[10], 1);
     assert_eq!(cpu.reg[11], 5);
@@ -438,7 +438,7 @@ fn blt_instruction_fetch() {
     let blt_instruction: Word = 0b0_000000_00010_00001_100_0100_0_1100011;
     mem.store_word(0x0, blt_instruction);
 
-    let instruction = cpu.fetch_instruction(&mem);
+    let instruction = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, blt_instruction);
 }
 
@@ -454,7 +454,7 @@ fn blt_taken_forward() {
     cpu.reg[1] = 3;
     cpu.reg[2] = 10; // x1 < x2
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 8);
 }
@@ -471,7 +471,7 @@ fn blt_not_taken_pc_increments() {
     cpu.reg[1] = 9;
     cpu.reg[2] = 2; // x1 > x2
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 4);
 }
@@ -490,7 +490,7 @@ fn blt_backward_jump() {
     cpu.reg[1] = 1;
     cpu.reg[2] = 5; // 1 < 5 → taken
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 0x08);
 }
@@ -507,7 +507,7 @@ fn blt_signed_negative_comparison() {
     cpu.reg[1] = (-5i32) as Word;
     cpu.reg[2] = 3;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // -5 < 3 → taken
     assert_eq!(cpu.pc, 8);
@@ -525,7 +525,7 @@ fn blt_equal_not_taken() {
     cpu.reg[1] = 7;
     cpu.reg[2] = 7;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 4);
 }
@@ -544,7 +544,7 @@ fn blt_unaligned_target_panics() {
     cpu.reg[1] = 1;
     cpu.reg[2] = 2;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 }
 
 /* -------------------- BLTU tests -------------------- */
@@ -559,7 +559,7 @@ fn bltu_instruction_fetch() {
     let bltu_instruction: Word = 0b0_000000_00010_00001_110_0100_0_1100011;
     mem.store_word(0x0, bltu_instruction);
 
-    let instruction = cpu.fetch_instruction(&mem);
+    let instruction = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, bltu_instruction);
 }
 
@@ -575,7 +575,7 @@ fn bltu_taken_forward() {
     cpu.reg[1] = 5;
     cpu.reg[2] = 10;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 8);
 }
@@ -592,7 +592,7 @@ fn bltu_not_taken_pc_increments() {
     cpu.reg[1] = 0xFFFF_FFFF;
     cpu.reg[2] = 0x0000_0001; // unsigned: 0xFFFF_FFFF > 0x1 → not taken
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 4);
 }
@@ -611,7 +611,7 @@ fn bltu_backward_jump() {
     cpu.reg[1] = 0;
     cpu.reg[2] = 5;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 0x08);
 }
@@ -628,7 +628,7 @@ fn bltu_large_unsigned_values() {
     cpu.reg[1] = 0xFFFF_FFFE;
     cpu.reg[2] = 0xFFFF_FFFF; // unsigned smaller → branch taken
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 8);
 }
@@ -645,7 +645,7 @@ fn bltu_equal_not_taken() {
     cpu.reg[1] = 123;
     cpu.reg[2] = 123;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 4);
 }
@@ -663,7 +663,7 @@ fn bltu_unaligned_target_panics() {
     cpu.reg[1] = 1;
     cpu.reg[2] = 5;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 }
 
 /* -------------------- BGE tests -------------------- */
@@ -678,7 +678,7 @@ fn bge_instruction_fetch() {
     let bge_instruction: Word = 0b0_000000_00010_00001_101_0100_0_1100011;
     mem.store_word(0x0, bge_instruction);
 
-    let instruction = cpu.fetch_instruction(&mem);
+    let instruction = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, bge_instruction);
 }
 
@@ -694,7 +694,7 @@ fn bge_taken_forward() {
     cpu.reg[1] = 10;
     cpu.reg[2] = 3; // 10 >= 3 → taken
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 8);
 }
@@ -711,7 +711,7 @@ fn bge_not_taken_pc_increments() {
     cpu.reg[1] = 2;
     cpu.reg[2] = 9; // 2 < 9 → not taken
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 4);
 }
@@ -731,7 +731,7 @@ fn bge_backward_jump() {
     cpu.reg[1] = 5;
     cpu.reg[2] = 5; // equal → taken
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 0x08);
 }
@@ -748,7 +748,7 @@ fn bge_signed_negative_comparison() {
     cpu.reg[1] = (-3i32) as Word;
     cpu.reg[2] = (-5i32) as Word; // -3 >= -5 → taken
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 8);
 }
@@ -765,7 +765,7 @@ fn bge_equal_taken() {
     cpu.reg[1] = 7;
     cpu.reg[2] = 7;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 8);
 }
@@ -784,7 +784,7 @@ fn bge_unaligned_target_panics() {
     cpu.reg[1] = 1;
     cpu.reg[2] = 1;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 }
 
 /* -------------------- BGEU tests -------------------- */
@@ -799,7 +799,7 @@ fn bgeu_instruction_fetch() {
     let bgeu_instruction: Word = 0b0_000000_00010_00001_111_0100_0_1100011;
     mem.store_word(0x0, bgeu_instruction);
 
-    let instruction = cpu.fetch_instruction(&mem);
+    let instruction = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, bgeu_instruction);
 }
 
@@ -815,7 +815,7 @@ fn bgeu_taken_forward() {
     cpu.reg[1] = 0xFFFF_FFFF;
     cpu.reg[2] = 0x7FFF_FFFF; // unsigned: 0xFFFF_FFFF > 0x7FFF_FFFF → taken
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 8);
 }
@@ -832,7 +832,7 @@ fn bgeu_not_taken_pc_increments() {
     cpu.reg[1] = 0x0000_0001;
     cpu.reg[2] = 0xFFFF_FFFF; // unsigned: smaller → not taken
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 4);
 }
@@ -851,7 +851,7 @@ fn bgeu_backward_jump() {
     cpu.reg[1] = 5;
     cpu.reg[2] = 3; // unsigned: 5 >= 3 → taken
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 0x08);
 }
@@ -868,7 +868,7 @@ fn bgeu_equal_taken() {
     cpu.reg[1] = 0xDEAD_BEEF;
     cpu.reg[2] = 0xDEAD_BEEF;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 8);
 }
@@ -885,7 +885,7 @@ fn bgeu_unsigned_wraparound() {
     cpu.reg[1] = 0xFFFF_FFFE;
     cpu.reg[2] = 0x0000_0002; // unsigned greater → taken
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.pc, 8);
 }
@@ -903,5 +903,5 @@ fn bgeu_unaligned_target_panics() {
     cpu.reg[1] = 0xFFFF_FFFF;
     cpu.reg[2] = 0x0000_0001;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 }

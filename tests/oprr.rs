@@ -11,7 +11,7 @@ fn add_instruction_fetch() {
     let add_instruction: Word = 0b0000000_00011_00010_000_00001_0110011;
     mem.store_word(0x0, add_instruction);
 
-    let instruction: u32 = cpu.fetch_instruction(&mem);
+    let instruction: u32 = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, add_instruction);
 }
 
@@ -28,7 +28,7 @@ fn add_basic_operation() {
     cpu.reg[2] = 5; // x2
     cpu.reg[3] = 7; // x3
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 5 + 7 = 12
     assert_eq!(cpu.reg[1], 12);
@@ -48,7 +48,7 @@ fn add_with_negative_operands() {
     cpu.reg[5] = (-10i32) as u32;
     cpu.reg[6] = 3;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // Expected result: -7
     assert_eq!(cpu.reg[4] as i32, -7);
@@ -68,7 +68,7 @@ fn add_two_negative_numbers() {
     cpu.reg[8] = (-5i32) as u32;
     cpu.reg[9] = (-7i32) as u32;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // -5 + -7 = -12
     assert_eq!(cpu.reg[7] as i32, -12);
@@ -88,7 +88,7 @@ fn add_overflow_wraps_around() {
     cpu.reg[11] = u32::MAX;
     cpu.reg[12] = 1;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // Overflow wraps around: 0xFFFF_FFFF + 1 = 0
     assert_eq!(cpu.reg[10], 0);
@@ -106,7 +106,7 @@ fn add_with_x0_operand() {
 
     cpu.reg[2] = 99;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[1], 99);
 }
@@ -124,7 +124,7 @@ fn add_write_to_x0_is_ignored() {
     cpu.reg[1] = 42;
     cpu.reg[2] = 58;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // x0 is hardwired to zero
     assert_eq!(cpu.reg[0], 0);
@@ -143,7 +143,7 @@ fn add_with_large_values() {
     cpu.reg[4] = 0xFFFF_0000;
     cpu.reg[5] = 0x0000_FFFF;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 0xFFFF_0000 + 0x0000_FFFF = 0xFFFF_FFFF
     assert_eq!(cpu.reg[3], 0xFFFF_FFFF);
@@ -161,7 +161,7 @@ fn add_with_same_source_registers() {
 
     cpu.reg[1] = 123;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[1], 246);
 }
@@ -176,7 +176,7 @@ fn add_all_zeros() {
     let add_instruction: Word = 0b0000000_00000_00000_000_11111_0110011;
     mem.store_word(0x0, add_instruction);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[31], 0);
 }
@@ -192,7 +192,7 @@ fn sub_instruction_fetch() {
     let sub_instruction: Word = 0b0100000_00011_00010_000_00001_0110011;
     mem.store_word(0x0, sub_instruction);
 
-    let instruction: u32 = cpu.fetch_instruction(&mem);
+    let instruction: u32 = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, sub_instruction);
 }
 
@@ -209,7 +209,7 @@ fn sub_basic_operation() {
     cpu.reg[2] = 10; // x2
     cpu.reg[3] = 4; // x3
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 10 - 4 = 6
     assert_eq!(cpu.reg[1], 6);
@@ -229,7 +229,7 @@ fn sub_with_negative_operands() {
     cpu.reg[5] = (-10i32) as u32;
     cpu.reg[6] = 3;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // Expected: -10 - 3 = -13
     assert_eq!(cpu.reg[4] as i32, -13);
@@ -249,7 +249,7 @@ fn sub_two_negative_numbers() {
     cpu.reg[8] = (-5i32) as u32;
     cpu.reg[9] = (-7i32) as u32;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // -5 - (-7) = 2
     assert_eq!(cpu.reg[7] as i32, 2);
@@ -269,7 +269,7 @@ fn sub_underflow_wraps_around() {
     cpu.reg[11] = 0;
     cpu.reg[12] = 1;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 0 - 1 wraps to 0xFFFF_FFFF
     assert_eq!(cpu.reg[10], 0xFFFF_FFFF);
@@ -287,7 +287,7 @@ fn sub_with_x0_operand() {
 
     cpu.reg[2] = 99;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[1] as i32, -99);
 }
@@ -305,7 +305,7 @@ fn sub_write_to_x0_is_ignored() {
     cpu.reg[1] = 42;
     cpu.reg[2] = 58;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // x0 must stay zero
     assert_eq!(cpu.reg[0], 0);
@@ -325,7 +325,7 @@ fn sub_with_large_values() {
     cpu.reg[4] = 0x0000_FFFF;
     cpu.reg[5] = 0xFFFF_0000;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 0x0000_FFFF - 0xFFFF_0000 = 0x0001_FFFF (wrap-around result)
     assert_eq!(cpu.reg[3], 0x0001_FFFF);
@@ -343,7 +343,7 @@ fn sub_with_same_source_registers() {
 
     cpu.reg[1] = 123;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[1], 0);
 }
@@ -358,7 +358,7 @@ fn sub_all_zeros() {
     let sub_instruction: Word = 0b0100000_00000_00000_000_11111_0110011;
     mem.store_word(0x0, sub_instruction);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[31], 0);
 }
@@ -374,7 +374,7 @@ fn slt_instruction_fetch() {
     let slt_instruction: Word = 0b0000000_00011_00010_010_00001_0110011;
     mem.store_word(0x0, slt_instruction);
 
-    let instruction: u32 = cpu.fetch_instruction(&mem);
+    let instruction: u32 = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, slt_instruction);
 }
 
@@ -391,7 +391,7 @@ fn slt_basic_less_than() {
     cpu.reg[2] = 5; // x2
     cpu.reg[3] = 7; // x3
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 5 < 7 → x1 = 1
     assert_eq!(cpu.reg[1], 1);
@@ -410,7 +410,7 @@ fn slt_greater_than() {
     cpu.reg[5] = 9;
     cpu.reg[6] = 3;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 9 < 3 → false → 0
     assert_eq!(cpu.reg[4], 0);
@@ -429,7 +429,7 @@ fn slt_equal_operands() {
     cpu.reg[8] = 42;
     cpu.reg[9] = 42;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 42 < 42 → false
     assert_eq!(cpu.reg[7], 0);
@@ -448,7 +448,7 @@ fn slt_with_negative_operands() {
     cpu.reg[11] = (-5i32) as u32; // x11 = -5
     cpu.reg[12] = 3; // x12 = 3
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // -5 < 3 → true
     assert_eq!(cpu.reg[10], 1);
@@ -467,7 +467,7 @@ fn slt_two_negative_numbers() {
     cpu.reg[14] = (-10i32) as u32; // x14 = -10
     cpu.reg[15] = (-3i32) as u32; // x15 = -3
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // -10 < -3 → true
     assert_eq!(cpu.reg[13], 1);
@@ -486,7 +486,7 @@ fn slt_negative_vs_positive() {
     cpu.reg[17] = (-1i32) as u32;
     cpu.reg[18] = 1;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[16], 1);
 }
@@ -504,7 +504,7 @@ fn slt_positive_vs_negative() {
     cpu.reg[20] = 5;
     cpu.reg[21] = (-5i32) as u32;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[19], 0);
 }
@@ -521,7 +521,7 @@ fn slt_zero_vs_positive() {
 
     cpu.reg[2] = 123;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[1], 1);
 }
@@ -539,7 +539,7 @@ fn slt_write_to_x0_is_ignored() {
     cpu.reg[1] = 10;
     cpu.reg[2] = 20;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[0], 0);
 }
@@ -556,7 +556,7 @@ fn slt_same_registers() {
 
     cpu.reg[3] = 123;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[3], 0);
 }
@@ -574,7 +574,7 @@ fn slt_large_values_signed_compare() {
     cpu.reg[6] = 0x8000_0000; // -2147483648 in signed
     cpu.reg[7] = 0x7FFF_FFFF; //  2147483647 in signed
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // -2147483648 < 2147483647 → true
     assert_eq!(cpu.reg[5], 1);
@@ -590,7 +590,7 @@ fn slt_all_zeros() {
     let slt_instruction: Word = 0b0000000_00000_00000_010_11111_0110011;
     mem.store_word(0x0, slt_instruction);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[31], 0);
 }
@@ -606,7 +606,7 @@ fn sltu_instruction_fetch() {
     let sltu_instruction: Word = 0b0000000_00011_00010_011_00001_0110011;
     mem.store_word(0x0, sltu_instruction);
 
-    let instruction: u32 = cpu.fetch_instruction(&mem);
+    let instruction: u32 = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, sltu_instruction);
 }
 
@@ -623,7 +623,7 @@ fn sltu_basic_less_than() {
     cpu.reg[2] = 5;
     cpu.reg[3] = 7;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 5 < 7 → true
     assert_eq!(cpu.reg[1], 1);
@@ -642,7 +642,7 @@ fn sltu_greater_than() {
     cpu.reg[5] = 9;
     cpu.reg[6] = 3;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[4], 0);
 }
@@ -660,7 +660,7 @@ fn sltu_equal_operands() {
     cpu.reg[8] = 42;
     cpu.reg[9] = 42;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[7], 0);
 }
@@ -679,7 +679,7 @@ fn sltu_signed_negative_operands() {
     cpu.reg[11] = (-1i32) as u32;
     cpu.reg[12] = 3;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // Unsigned compare: 0xFFFF_FFFF < 3 → false
     assert_eq!(cpu.reg[10], 0);
@@ -698,7 +698,7 @@ fn sltu_unsigned_less_than_large_value() {
     cpu.reg[14] = 1;
     cpu.reg[15] = 0xFFFF_FFFF;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[13], 1);
 }
@@ -715,7 +715,7 @@ fn sltu_zero_vs_positive() {
 
     cpu.reg[2] = 123;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[1], 1);
 }
@@ -732,7 +732,7 @@ fn sltu_positive_vs_zero() {
 
     cpu.reg[2] = 50;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 50 < 0 → false
     assert_eq!(cpu.reg[3], 0);
@@ -751,7 +751,7 @@ fn sltu_write_to_x0_is_ignored() {
     cpu.reg[1] = 1;
     cpu.reg[2] = 2;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[0], 0);
 }
@@ -768,7 +768,7 @@ fn sltu_same_registers() {
 
     cpu.reg[5] = 999;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[5], 0);
 }
@@ -786,7 +786,7 @@ fn sltu_large_unsigned_compare() {
     cpu.reg[7] = 0x7FFF_FFFF;
     cpu.reg[8] = 0x8000_0000;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // Unsigned: 0x7FFFFFFF < 0x80000000 → true
     assert_eq!(cpu.reg[6], 1);
@@ -805,7 +805,7 @@ fn sltu_large_reversed_unsigned_compare() {
     cpu.reg[10] = 0x8000_0000;
     cpu.reg[11] = 0x7FFF_FFFF;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // Unsigned: 0x80000000 < 0x7FFFFFFF → false
     assert_eq!(cpu.reg[9], 0);
@@ -821,7 +821,7 @@ fn sltu_all_zeros() {
     let sltu_instruction: Word = 0b0000000_00000_00000_011_11111_0110011;
     mem.store_word(0x0, sltu_instruction);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[31], 0);
 }
@@ -837,7 +837,7 @@ fn and_instruction_fetch() {
     let and_instruction: Word = 0b0000000_00011_00010_111_00001_0110011;
     mem.store_word(0x0, and_instruction);
 
-    let instruction: u32 = cpu.fetch_instruction(&mem);
+    let instruction: u32 = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, and_instruction);
 }
 
@@ -854,7 +854,7 @@ fn and_basic_operation() {
     cpu.reg[2] = 0b1100; // x2 = 12
     cpu.reg[3] = 0b1010; // x3 = 10
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 1100 & 1010 = 1000 (8)
     assert_eq!(cpu.reg[1], 0b1000);
@@ -873,7 +873,7 @@ fn and_with_all_bits_set() {
     cpu.reg[5] = 0xFFFF_FFFF;
     cpu.reg[6] = 0x1234_5678;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 0xFFFF_FFFF & 0x12345678 = 0x12345678
     assert_eq!(cpu.reg[4], 0x1234_5678);
@@ -892,7 +892,7 @@ fn and_with_zeros() {
     cpu.reg[8] = 0xFFFF_FFFF;
     cpu.reg[9] = 0x0000_0000;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // anything & 0 = 0
     assert_eq!(cpu.reg[7], 0);
@@ -910,7 +910,7 @@ fn and_same_operands() {
 
     cpu.reg[11] = 0xDEAD_BEEF;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // x11 & x11 = x11
     assert_eq!(cpu.reg[10], 0xDEAD_BEEF);
@@ -929,7 +929,7 @@ fn and_alternating_bit_patterns() {
     cpu.reg[13] = 0xAAAA_AAAA; // 1010...
     cpu.reg[14] = 0x5555_5555; // 0101...
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 1010... & 0101... = 0000...
     assert_eq!(cpu.reg[12], 0x0000_0000);
@@ -947,7 +947,7 @@ fn and_with_x0_operand() {
 
     cpu.reg[2] = 0xFFFF_FFFF;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[1], 0);
 }
@@ -965,7 +965,7 @@ fn and_write_to_x0_is_ignored() {
     cpu.reg[1] = 0xAAAA_AAAA;
     cpu.reg[2] = 0x5555_5555;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[0], 0);
 }
@@ -983,7 +983,7 @@ fn and_large_values() {
     cpu.reg[4] = 0x1234_ABCD;
     cpu.reg[5] = 0xFFFF_00FF;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 0x1234ABCD & 0xFFFF00FF = 0x123400CD
     assert_eq!(cpu.reg[3], 0x1234_00CD);
@@ -999,7 +999,7 @@ fn and_all_zeros() {
     let and_instruction: Word = 0b0000000_00000_00000_111_11111_0110011;
     mem.store_word(0x0, and_instruction);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[31], 0);
 }
@@ -1015,7 +1015,7 @@ fn or_instruction_fetch() {
     let or_instruction: Word = 0b0000000_00011_00010_110_00001_0110011;
     mem.store_word(0x0, or_instruction);
 
-    let instruction: u32 = cpu.fetch_instruction(&mem);
+    let instruction: u32 = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, or_instruction);
 }
 
@@ -1032,7 +1032,7 @@ fn or_basic_operation() {
     cpu.reg[2] = 0b1100; // 12
     cpu.reg[3] = 0b1010; // 10
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 1100 | 1010 = 1110 (14)
     assert_eq!(cpu.reg[1], 0b1110);
@@ -1051,7 +1051,7 @@ fn or_with_all_bits_set() {
     cpu.reg[5] = 0xFFFF_FFFF;
     cpu.reg[6] = 0x1234_5678;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 0xFFFF_FFFF | anything = 0xFFFF_FFFF
     assert_eq!(cpu.reg[4], 0xFFFF_FFFF);
@@ -1070,7 +1070,7 @@ fn or_with_zeros() {
     cpu.reg[8] = 0xFFFF_0000;
     cpu.reg[9] = 0x0000_0000;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // x8 | 0 = x8
     assert_eq!(cpu.reg[7], 0xFFFF_0000);
@@ -1088,7 +1088,7 @@ fn or_same_operands() {
 
     cpu.reg[11] = 0xDEAD_BEEF;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // x11 | x11 = x11
     assert_eq!(cpu.reg[10], 0xDEAD_BEEF);
@@ -1107,7 +1107,7 @@ fn or_alternating_bit_patterns() {
     cpu.reg[13] = 0xAAAA_AAAA; // 1010...
     cpu.reg[14] = 0x5555_5555; // 0101...
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 1010... | 0101... = 1111...
     assert_eq!(cpu.reg[12], 0xFFFF_FFFF);
@@ -1125,7 +1125,7 @@ fn or_with_x0_operand() {
 
     cpu.reg[2] = 0x1234_5678;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[1], 0x1234_5678);
 }
@@ -1143,7 +1143,7 @@ fn or_write_to_x0_is_ignored() {
     cpu.reg[1] = 0xAAAA_AAAA;
     cpu.reg[2] = 0x5555_5555;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // x0 is hardwired to zero
     assert_eq!(cpu.reg[0], 0);
@@ -1162,7 +1162,7 @@ fn or_large_values() {
     cpu.reg[4] = 0x1234_0000;
     cpu.reg[5] = 0x0000_ABCD;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 0x12340000 | 0x0000ABCD = 0x1234ABCD
     assert_eq!(cpu.reg[3], 0x1234_ABCD);
@@ -1178,7 +1178,7 @@ fn or_all_zeros() {
     let or_instruction: Word = 0b0000000_00000_00000_110_11111_0110011;
     mem.store_word(0x0, or_instruction);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[31], 0);
 }
@@ -1194,7 +1194,7 @@ fn xor_instruction_fetch() {
     let xor_instruction: Word = 0b0000000_00011_00010_100_00001_0110011;
     mem.store_word(0x0, xor_instruction);
 
-    let instruction: u32 = cpu.fetch_instruction(&mem);
+    let instruction: u32 = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, xor_instruction);
 }
 
@@ -1211,7 +1211,7 @@ fn xor_basic_operation() {
     cpu.reg[2] = 0b1100; // 12
     cpu.reg[3] = 0b1010; // 10
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 1100 ^ 1010 = 0110 (6)
     assert_eq!(cpu.reg[1], 0b0110);
@@ -1229,7 +1229,7 @@ fn xor_same_operands() {
 
     cpu.reg[5] = 0xFFFF_FFFF;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // a ^ a = 0
     assert_eq!(cpu.reg[4], 0);
@@ -1248,7 +1248,7 @@ fn xor_with_all_bits_set() {
     cpu.reg[7] = 0xFFFF_FFFF;
     cpu.reg[8] = 0x1234_5678;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 0xFFFF_FFFF ^ 0x12345678 = bitwise NOT of 0x12345678
     assert_eq!(cpu.reg[6], !0x1234_5678);
@@ -1267,7 +1267,7 @@ fn xor_with_zeros() {
     cpu.reg[10] = 0x0000_0000;
     cpu.reg[11] = 0xABCD_1234;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 0 ^ a = a
     assert_eq!(cpu.reg[9], 0xABCD_1234);
@@ -1286,7 +1286,7 @@ fn xor_alternating_bit_patterns() {
     cpu.reg[13] = 0xAAAA_AAAA; // 1010...
     cpu.reg[14] = 0x5555_5555; // 0101...
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 1010... ^ 0101... = 1111...
     assert_eq!(cpu.reg[12], 0xFFFF_FFFF);
@@ -1304,7 +1304,7 @@ fn xor_with_x0_operand() {
 
     cpu.reg[2] = 0x1234_5678;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[1], 0x1234_5678);
 }
@@ -1322,7 +1322,7 @@ fn xor_write_to_x0_is_ignored() {
     cpu.reg[1] = 0xAAAA_AAAA;
     cpu.reg[2] = 0x5555_5555;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[0], 0);
 }
@@ -1340,7 +1340,7 @@ fn xor_large_values() {
     cpu.reg[4] = 0x1234_ABCD;
     cpu.reg[5] = 0xFFFF_00FF;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 0x1234ABCD ^ 0xFFFF00FF = 0xEDCB_AB32
     assert_eq!(cpu.reg[3], 0xEDCB_AB32);
@@ -1356,7 +1356,7 @@ fn xor_all_zeros() {
     let xor_instruction: Word = 0b0000000_00000_00000_100_11111_0110011;
     mem.store_word(0x0, xor_instruction);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[31], 0);
 }
@@ -1372,7 +1372,7 @@ fn sll_instruction_fetch() {
     let sll_instruction: Word = 0b0000000_00011_00010_001_00001_0110011;
     mem.store_word(0x0, sll_instruction);
 
-    let instruction: u32 = cpu.fetch_instruction(&mem);
+    let instruction: u32 = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, sll_instruction);
 }
 
@@ -1389,7 +1389,7 @@ fn sll_basic_operation() {
     cpu.reg[2] = 0b0001; // 1
     cpu.reg[3] = 2; // shift by 2 bits
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 1 << 2 = 4
     assert_eq!(cpu.reg[1], 0b0100);
@@ -1408,7 +1408,7 @@ fn sll_shift_by_zero() {
     cpu.reg[5] = 0x1234_5678;
     cpu.reg[6] = 0; // shift by 0
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // No change expected
     assert_eq!(cpu.reg[4], 0x1234_5678);
@@ -1427,7 +1427,7 @@ fn sll_shift_by_31() {
     cpu.reg[8] = 0x1;
     cpu.reg[9] = 31;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 1 << 31 = 0x8000_0000
     assert_eq!(cpu.reg[7], 0x8000_0000);
@@ -1446,7 +1446,7 @@ fn sll_shift_by_more_than_31() {
     cpu.reg[11] = 0x1;
     cpu.reg[12] = 35; // 35 & 0x1F = 3
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 1 << 3 = 8
     assert_eq!(cpu.reg[10], 0x8);
@@ -1465,7 +1465,7 @@ fn sll_alternating_bits() {
     cpu.reg[14] = 0xAAAA_AAAA; // 1010...
     cpu.reg[15] = 1; // shift left by 1
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // Shift left by 1, low bit becomes 0
     assert_eq!(cpu.reg[13], 0x5555_5554);
@@ -1483,7 +1483,7 @@ fn sll_with_zero_source() {
 
     cpu.reg[17] = 10;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 0 << anything = 0
     assert_eq!(cpu.reg[16], 0);
@@ -1502,7 +1502,7 @@ fn sll_write_to_x0_is_ignored() {
     cpu.reg[1] = 0xF0F0_F0F0;
     cpu.reg[2] = 4;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // x0 remains 0
     assert_eq!(cpu.reg[0], 0);
@@ -1521,7 +1521,7 @@ fn sll_large_value_shift() {
     cpu.reg[4] = 0x000F_FFFF;
     cpu.reg[5] = 8;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 0x000FFFFF << 8 = 0x0FFFFF00
     assert_eq!(cpu.reg[3], 0x0FFF_FF00);
@@ -1537,7 +1537,7 @@ fn sll_all_zeros() {
     let sll_instruction: Word = 0b0000000_00000_00000_001_11111_0110011;
     mem.store_word(0x0, sll_instruction);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[31], 0);
 }
@@ -1553,7 +1553,7 @@ fn srl_instruction_fetch() {
     let srl_instruction: Word = 0b0000000_00011_00010_101_00001_0110011;
     mem.store_word(0x0, srl_instruction);
 
-    let instruction: u32 = cpu.fetch_instruction(&mem);
+    let instruction: u32 = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, srl_instruction);
 }
 
@@ -1570,7 +1570,7 @@ fn srl_basic_operation() {
     cpu.reg[2] = 0b1000; // 8
     cpu.reg[3] = 2; // shift by 2
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 8 >> 2 = 2
     assert_eq!(cpu.reg[1], 0b10);
@@ -1589,7 +1589,7 @@ fn srl_shift_by_zero() {
     cpu.reg[5] = 0xF0F0_F0F0;
     cpu.reg[6] = 0; // shift by 0
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[4], 0xF0F0_F0F0);
 }
@@ -1607,7 +1607,7 @@ fn srl_shift_by_31() {
     cpu.reg[8] = 0x8000_0000;
     cpu.reg[9] = 31;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // Logical right shift: only bit 31 moves to bit 0
     assert_eq!(cpu.reg[7], 1);
@@ -1626,7 +1626,7 @@ fn srl_shift_by_more_than_31() {
     cpu.reg[11] = 0xFFFF_FFFF;
     cpu.reg[12] = 35; // 35 & 0x1F = 3
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 0xFFFF_FFFF >> 3 = 0x1FFF_FFFF
     assert_eq!(cpu.reg[10], 0x1FFF_FFFF);
@@ -1645,7 +1645,7 @@ fn srl_alternating_bits() {
     cpu.reg[14] = 0xAAAA_AAAA; // 1010...
     cpu.reg[15] = 1;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // Logical shift right by 1
     assert_eq!(cpu.reg[13], 0x5555_5555);
@@ -1663,7 +1663,7 @@ fn srl_with_zero_source() {
 
     cpu.reg[17] = 10;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 0 >> anything = 0
     assert_eq!(cpu.reg[16], 0);
@@ -1682,7 +1682,7 @@ fn srl_write_to_x0_is_ignored() {
     cpu.reg[1] = 0xFFFF_FFFF;
     cpu.reg[2] = 4;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // x0 must stay zero
     assert_eq!(cpu.reg[0], 0);
@@ -1701,7 +1701,7 @@ fn srl_large_value_shift() {
     cpu.reg[4] = 0xFFFF_0000;
     cpu.reg[5] = 8;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 0xFFFF_0000 >> 8 = 0x00FF_FF00
     assert_eq!(cpu.reg[3], 0x00FF_FF00);
@@ -1717,7 +1717,7 @@ fn srl_all_zeros() {
     let srl_instruction: Word = 0b0000000_00000_00000_101_11111_0110011;
     mem.store_word(0x0, srl_instruction);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[31], 0);
 }
@@ -1733,7 +1733,7 @@ fn srl_same_registers() {
     mem.store_word(0x0, srl_instruction);
 
     cpu.reg[5] = 0xF0F0_F0F0; // value = F0F0_F0F0 (shift amount = 0x10 = 16)
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 0xF0F0_F0F0 >> 16 = 0x0000_F0F0
     assert_eq!(cpu.reg[5], 0x0000_F0F0);
@@ -1750,7 +1750,7 @@ fn sra_instruction_fetch() {
     let sra_instruction: Word = 0b0100000_00011_00010_101_00001_0110011;
     mem.store_word(0x0, sra_instruction);
 
-    let instruction: u32 = cpu.fetch_instruction(&mem);
+    let instruction: u32 = cpu.fetch_instruction(&mut mem);
     assert_eq!(instruction, sra_instruction);
 }
 
@@ -1767,7 +1767,7 @@ fn sra_basic_operation_positive() {
     cpu.reg[2] = 0b1000; // 8
     cpu.reg[3] = 2; // shift by 2
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // 8 >> 2 = 2
     assert_eq!(cpu.reg[1], 0b10);
@@ -1787,7 +1787,7 @@ fn sra_negative_number_sign_extend() {
     cpu.reg[5] = (-8i32) as u32;
     cpu.reg[6] = 2;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // Arithmetic right shift keeps sign bits: -8 >> 2 = -2
     assert_eq!(cpu.reg[4] as i32, -2);
@@ -1806,7 +1806,7 @@ fn sra_shift_by_zero() {
     cpu.reg[8] = 0xF000_0000;
     cpu.reg[9] = 0; // shift by 0
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[7], 0xF000_0000);
 }
@@ -1824,7 +1824,7 @@ fn sra_shift_by_31() {
     cpu.reg[11] = (-1i32) as u32; // 0xFFFF_FFFF
     cpu.reg[12] = 31;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // -1 >> 31 = -1 (sign bit stays 1)
     assert_eq!(cpu.reg[10] as i32, -1);
@@ -1843,7 +1843,7 @@ fn sra_shift_by_more_than_31() {
     cpu.reg[14] = (-128i32) as u32; // 0xFFFFFF80
     cpu.reg[15] = 35; // 35 & 0x1F = 3
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // -128 >> 3 = -16
     assert_eq!(cpu.reg[13] as i32, -16);
@@ -1862,7 +1862,7 @@ fn sra_alternating_bits_negative() {
     cpu.reg[20] = 0xAAAA_AAAA; // signed = -1431655766
     cpu.reg[21] = 1;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // Arithmetic shift preserves sign bit (1)
     assert_eq!(cpu.reg[19], 0xD555_5555);
@@ -1880,7 +1880,7 @@ fn sra_with_zero_source() {
 
     cpu.reg[23] = 10;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[22], 0);
 }
@@ -1898,7 +1898,7 @@ fn sra_write_to_x0_is_ignored() {
     cpu.reg[1] = (-1i32) as u32;
     cpu.reg[2] = 4;
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[0], 0);
 }
@@ -1915,7 +1915,7 @@ fn sra_same_registers() {
 
     cpu.reg[5] = (-256i32) as u32; // 0xFFFF_FF00 → shift by 0
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     // -256 >> 16 = -1 (0xFFFF_FFFF)
     assert_eq!(cpu.reg[5] as i32, -256);
@@ -1931,7 +1931,7 @@ fn sra_all_zeros() {
     let sra_instruction: Word = 0b0100000_00000_00000_101_11111_0110011;
     mem.store_word(0x0, sra_instruction);
 
-    cpu.clock_cycle(&mem);
+    cpu.clock_cycle(&mut mem);
 
     assert_eq!(cpu.reg[31], 0);
 }

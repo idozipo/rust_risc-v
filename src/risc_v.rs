@@ -277,6 +277,7 @@ pub enum Instruction {
     BLTU { offset: i32, rs1: usize, rs2: usize },
     BGE { offset: i32, rs1: usize, rs2: usize },
     BGEU { offset: i32, rs1: usize, rs2: usize },
+    LW { offset: i32, rs1: usize, rd: usize },
     // TODO: implement these as we go along
 }
 
@@ -321,10 +322,14 @@ impl Instruction {
     const BGE_FUNCT3: usize = 0b101;
     const BGEU_FUNCT3: usize = 0b111;
 
+    const LW_FUNCT3: usize = 0b010;
+
     const OPIMM_BITS: u32 = 12;
     const JAL_BITS: u32 = 21;
     const JALR_BITS: u32 = 12;
     const BRANCH_BITS: u32 = 13;
+    const LOAD_BITS: u32 = 12;
+    const STORE_BITS: u32 = 12;
 
     pub fn parse_instruction(encoding: EncodingVariant) -> Instruction {
         match encoding {
@@ -399,6 +404,9 @@ impl Instruction {
                         rs1,
                         rd,
                     }
+                } else if opcode == OPCODE::LOAD && funct3 == Instruction::LW_FUNCT3 {
+                    let offset: i32 = sign_extend_u32(imm, Instruction::LOAD_BITS);
+                    Instruction::LW { offset, rs1, rd }
                 } else {
                     panic!("unrecognized IType instruction")
                 }
@@ -550,7 +558,7 @@ impl RISCV {
 
     pub fn clock_cycle(&mut self, mem: &Memory) {
         self.fetch_instruction(mem);
-        self.execute();
+        self.execute(mem);
         self.increment_pc();
     }
 
@@ -565,7 +573,7 @@ impl RISCV {
         self.pc = self.pc.wrapping_add(4); // increment pc by 4 (size of instruction word)
     }
 
-    pub fn execute(&mut self) {
+    pub fn execute(&mut self, mem: &Memory) {
         let encoding: EncodingVariant = EncodingVariant::get_encoding(self.current_instruction);
         let parsed_instruction: Instruction = Instruction::parse_instruction(encoding);
         match parsed_instruction {
@@ -776,6 +784,13 @@ impl RISCV {
                         "BGEU target address must be aligned to 4 bytes"
                     );
                     self.pc = target_address.wrapping_sub(4); // subtract 4 because pc will be incremented after execute
+                }
+            }
+            Instruction::LW { offset, rs1, rd } => {
+                let effective_address: u32 = self.reg[rs1].wrapping_add_signed(offset);
+                let loaded_word: u32 = mem.fetch_word(effective_address as usize);
+                if rd != 0 {
+                    self.reg[rd] = loaded_word;
                 }
             }
         };

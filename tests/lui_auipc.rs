@@ -288,7 +288,7 @@ fn auipc_with_pc_change_before_execute() {
 
     cpu.fetch_instruction(&mem);
     cpu.pc = 0x800; // changed before execute
-    cpu.execute();
+    cpu.execute(&mem);
     cpu.increment_pc();
 
     // Result = 0x800 + (0x123 << 12) = 0x123800

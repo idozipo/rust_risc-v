@@ -1,5 +1,5 @@
  - for this implementation IALIGN is set to 32
  - this implementation is only for the base integer rv32i instruction set
  - {} is words, [] is for bytes (for debugging)
- - memory is set to around 64kb (0x10000) so it can be on the stack
+ - memory is set to around 16MB (0x1000000) 
  - you can load a program.bin file for the emulator to run

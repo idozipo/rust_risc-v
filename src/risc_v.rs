@@ -10,20 +10,27 @@ pub type HalfWord = u16; // Represents 2 bytes in memory
 pub type Word = u32; // Represents 4 bytes in memory (one instruction)
 
 const XLEN: usize = 32; // # of registers ( mem_size = 2^(xlen-1) )
-const MEM_SIZE: usize = 0x10000;
+const MEM_SIZE: usize = 0x1000000;
 
 pub struct Memory {
-    mem: [Byte; MEM_SIZE], // 64KB of addresable memory
+    mem: Vec<Byte>, //[Byte; MEM_SIZE], // 16MB of addresable memory
 }
 
 impl Memory {
     pub fn new() -> Self {
-        Memory { mem: [0; MEM_SIZE] }
+        Memory {
+            mem: vec![0; MEM_SIZE],
+        }
     }
 
     /// Reads a full word from memory at aligned address
     pub fn fetch_word(&self, addr: usize) -> Word {
         assert!(addr % 4 == 0); // the address needs to be aligned to 32 bits
+        assert!(
+            addr <= MEM_SIZE - 4,
+            "Tried accessing memory out of bounds {}",
+            addr
+        ); // ensure we don't go out of bounds
 
         // little-endian
         u32::from_le_bytes([self[addr], self[addr + 1], self[addr + 2], self[addr + 3]])
@@ -43,6 +50,7 @@ impl Memory {
     /// Reads a half word from memory at aligned address
     pub fn fetch_halfword(&self, addr: usize) -> HalfWord {
         assert!(addr % 2 == 0); // the address needs to be aligned to 16 bits
+        assert!(addr <= MEM_SIZE - 2, "Tried accessing memory out of bounds"); // ensure we don't go out of bounds
 
         // little-endian
         u16::from_le_bytes([self[addr], self[addr + 1]])
@@ -62,12 +70,14 @@ impl Index<usize> for Memory {
     type Output = Byte;
 
     fn index(&self, index: usize) -> &Self::Output {
+        assert!(index < MEM_SIZE);
         &self.mem[index]
     }
 }
 
 impl IndexMut<usize> for Memory {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        assert!(index < MEM_SIZE);
         &mut self.mem[index]
     }
 }

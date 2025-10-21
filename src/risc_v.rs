@@ -39,6 +39,23 @@ impl Memory {
         self.mem[addr + 2] = bytes[2];
         self.mem[addr + 3] = bytes[3];
     }
+
+    /// Reads a half word from memory at aligned address
+    pub fn fetch_halfword(&self, addr: usize) -> HalfWord {
+        assert!(addr % 2 == 0); // the address needs to be aligned to 16 bits
+
+        // little-endian
+        u16::from_le_bytes([self[addr], self[addr + 1]])
+    }
+
+    pub fn store_halfword(&mut self, addr: usize, value: HalfWord) {
+        assert!(addr % 2 == 0); // the address needs to be aligned to 16 bits
+        assert!(addr <= MEM_SIZE - 2, "Tried accessing memory out of bounds"); // ensure we don't go out of bounds
+
+        let bytes: [Byte; 2] = value.to_le_bytes(); // convert the word to bytes (little-endian)
+        self.mem[addr] = bytes[0];
+        self.mem[addr + 1] = bytes[1];
+    }
 }
 
 impl Index<usize> for Memory {
@@ -278,6 +295,8 @@ pub enum Instruction {
     BGE { offset: i32, rs1: usize, rs2: usize },
     BGEU { offset: i32, rs1: usize, rs2: usize },
     LW { offset: i32, rs1: usize, rd: usize },
+    LH { offset: i32, rs1: usize, rd: usize },
+    LHU { offset: i32, rs1: usize, rd: usize },
     // TODO: implement these as we go along
 }
 
@@ -323,6 +342,8 @@ impl Instruction {
     const BGEU_FUNCT3: usize = 0b111;
 
     const LW_FUNCT3: usize = 0b010;
+    const LH_FUNCT3: usize = 0b001;
+    const LHU_FUNCT3: usize = 0b101;
 
     const OPIMM_BITS: u32 = 12;
     const JAL_BITS: u32 = 21;
@@ -407,6 +428,12 @@ impl Instruction {
                 } else if opcode == OPCODE::LOAD && funct3 == Instruction::LW_FUNCT3 {
                     let offset: i32 = sign_extend_u32(imm, Instruction::LOAD_BITS);
                     Instruction::LW { offset, rs1, rd }
+                } else if opcode == OPCODE::LOAD && funct3 == Instruction::LH_FUNCT3 {
+                    let offset: i32 = sign_extend_u32(imm, Instruction::LOAD_BITS);
+                    Instruction::LH { offset, rs1, rd }
+                } else if opcode == OPCODE::LOAD && funct3 == Instruction::LHU_FUNCT3 {
+                    let offset: i32 = sign_extend_u32(imm, Instruction::LOAD_BITS);
+                    Instruction::LHU { offset, rs1, rd }
                 } else {
                     panic!("unrecognized IType instruction")
                 }
@@ -787,10 +814,24 @@ impl RISCV {
                 }
             }
             Instruction::LW { offset, rs1, rd } => {
-                let effective_address: u32 = self.reg[rs1].wrapping_add_signed(offset);
-                let loaded_word: u32 = mem.fetch_word(effective_address as usize);
+                let effective_address: Word = self.reg[rs1].wrapping_add_signed(offset);
+                let loaded_word: Word = mem.fetch_word(effective_address as usize);
                 if rd != 0 {
                     self.reg[rd] = loaded_word;
+                }
+            }
+            Instruction::LH { offset, rs1, rd } => {
+                let effective_address: Word = self.reg[rs1].wrapping_add_signed(offset);
+                let loaded_halfword: HalfWord = mem.fetch_halfword(effective_address as usize);
+                if rd != 0 {
+                    self.reg[rd] = sign_extend_u32(loaded_halfword as usize, 16) as u32;
+                }
+            }
+            Instruction::LHU { offset, rs1, rd } => {
+                let effective_address: Word = self.reg[rs1].wrapping_add_signed(offset);
+                let loaded_halfword: HalfWord = mem.fetch_halfword(effective_address as usize);
+                if rd != 0 {
+                    self.reg[rd] = loaded_halfword as u32;
                 }
             }
         };

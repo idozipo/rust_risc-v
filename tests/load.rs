@@ -175,3 +175,248 @@ fn lw_then_addi_dependency() {
     assert_eq!(cpu.reg[11], 0x15); // 0x10 + 5
     assert_eq!(cpu.pc, 0x08);
 }
+
+/* -------------------- LH tests -------------------- */
+
+/// LH instruction fetch
+#[test]
+fn lh_instruction_fetch() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LH x5, 0(x1)
+    // funct3 = 001, opcode = 0000011
+    let lh_instr: Word = 0b000000000000_00001_001_00101_0000011;
+    mem.store_word(0x0, lh_instr);
+
+    let instruction = cpu.fetch_instruction(&mem);
+    assert_eq!(instruction, lh_instr);
+}
+
+/// LH basic positive load
+#[test]
+fn lh_basic_load_positive() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LH x6, 0(x2)
+    let lh_instr: Word = 0b000000000000_00010_001_00110_0000011;
+    mem.store_word(0x0, lh_instr);
+
+    cpu.reg[2] = 0x100;
+    // Memory at 0x100 = 0x1234 (little-endian)
+    mem.store_halfword(0x100, 0x1234);
+
+    cpu.clock_cycle(&mem);
+
+    // 0x1234 stays as 0x00001234 after sign extension
+    assert_eq!(cpu.reg[6], 0x0000_1234);
+    assert_eq!(cpu.pc, 4);
+}
+
+/// LH with negative number (sign-extended)
+#[test]
+fn lh_sign_extension_negative() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LH x7, 0(x3)
+    let lh_instr: Word = 0b000000000000_00011_001_00111_0000011;
+    mem.store_word(0x0, lh_instr);
+
+    cpu.reg[3] = 0x200;
+    mem.store_halfword(0x200, 0xF234); // negative 16-bit value
+
+    cpu.clock_cycle(&mem);
+
+    // Sign-extended: 0xFFFF_F234
+    assert_eq!(cpu.reg[7], 0xFFFF_F234);
+    assert_eq!(cpu.pc, 4);
+}
+
+/// LH with positive offset
+#[test]
+fn lh_with_positive_offset() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LH x8, 4(x4)
+    let lh_instr: Word = 0b000000000100_00100_001_01000_0000011;
+    mem.store_word(0x0, lh_instr);
+
+    cpu.reg[4] = 0x300;
+    mem.store_halfword(0x304, 0x7FFF);
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[8], 0x0000_7FFF);
+    assert_eq!(cpu.pc, 4);
+}
+
+/// LH with negative offset
+#[test]
+fn lh_with_negative_offset() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LH x9, -2(x5)
+    let lh_instr: Word = 0b111111111110_00101_001_01001_0000011;
+    mem.store_word(0x0, lh_instr);
+
+    cpu.reg[5] = 0x400;
+    mem.store_halfword(0x3FE, 0xBEEF);
+
+    cpu.clock_cycle(&mem);
+
+    // 0xBEEF sign-extends → 0xFFFF_BEEF
+    assert_eq!(cpu.reg[9], 0xFFFF_BEEF);
+    assert_eq!(cpu.pc, 4);
+}
+
+/// LH unaligned address → should panic
+#[test]
+#[should_panic]
+fn lh_unaligned_address_panics() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LH x10, 1(x6)
+    let lh_instr: Word = 0b000000000001_00110_001_01010_0000011;
+    mem.store_word(0x0, lh_instr);
+
+    cpu.reg[6] = 0x100;
+    mem.store_halfword(0x101, 0xABCD);
+
+    cpu.clock_cycle(&mem);
+}
+
+/// LH destination is x0 → should not write
+#[test]
+fn lh_to_x0_does_not_write() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LH x0, 0(x7)
+    let lh_instr: Word = 0b000000000000_00111_001_00000_0000011;
+    mem.store_word(0x0, lh_instr);
+
+    cpu.reg[7] = 0x500;
+    mem.store_halfword(0x500, 0xAAAA);
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[0], 0);
+    assert_eq!(cpu.pc, 4);
+}
+
+/* -------------------- LHU tests -------------------- */
+
+/// LHU instruction fetch
+#[test]
+fn lhu_instruction_fetch() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LHU x5, 0(x1)
+    // funct3 = 101, opcode = 0000011
+    let lhu_instr: Word = 0b000000000000_00001_101_00101_0000011;
+    mem.store_word(0x0, lhu_instr);
+
+    let instruction = cpu.fetch_instruction(&mem);
+    assert_eq!(instruction, lhu_instr);
+}
+
+/// LHU basic positive load
+#[test]
+fn lhu_basic_load_positive() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LHU x6, 0(x2)
+    let lhu_instr: Word = 0b000000000000_00010_101_00110_0000011;
+    mem.store_word(0x0, lhu_instr);
+
+    cpu.reg[2] = 0x600;
+    mem.store_halfword(0x600, 0x1234);
+
+    cpu.clock_cycle(&mem);
+
+    // Zero-extended
+    assert_eq!(cpu.reg[6], 0x0000_1234);
+    assert_eq!(cpu.pc, 4);
+}
+
+/// LHU should zero-extend negative halfword
+#[test]
+fn lhu_zero_extension_from_negative() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LHU x7, 0(x3)
+    let lhu_instr: Word = 0b000000000000_00011_101_00111_0000011;
+    mem.store_word(0x0, lhu_instr);
+
+    cpu.reg[3] = 0x700;
+    mem.store_halfword(0x700, 0xF234); // 16-bit negative
+
+    cpu.clock_cycle(&mem);
+
+    // Zero-extended → 0x0000_F234
+    assert_eq!(cpu.reg[7], 0x0000_F234);
+    assert_eq!(cpu.pc, 4);
+}
+
+/// LHU with positive offset
+#[test]
+fn lhu_with_positive_offset() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LHU x8, 6(x4)
+    let lhu_instr: Word = 0b000000000110_00100_101_01000_0000011;
+    mem.store_word(0x0, lhu_instr);
+
+    cpu.reg[4] = 0x800;
+    mem.store_halfword(0x806, 0xBEEF);
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[8], 0x0000_BEEF);
+    assert_eq!(cpu.pc, 4);
+}
+
+/// LHU unaligned address → should panic
+#[test]
+#[should_panic]
+fn lhu_unaligned_address_panics() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LHU x9, 3(x5)
+    let lhu_instr: Word = 0b000000000011_00101_101_01001_0000011;
+    mem.store_word(0x0, lhu_instr);
+
+    cpu.reg[5] = 0x900;
+    mem.store_halfword(0x903, 0xABCD);
+
+    cpu.clock_cycle(&mem);
+}
+
+/// LHU destination is x0 → should not write
+#[test]
+fn lhu_to_x0_does_not_write() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LHU x0, 0(x6)
+    let lhu_instr: Word = 0b000000000000_00110_101_00000_0000011;
+    mem.store_word(0x0, lhu_instr);
+
+    cpu.reg[6] = 0xA00;
+    mem.store_halfword(0xA00, 0x1111);
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[0], 0);
+    assert_eq!(cpu.pc, 4);
+}

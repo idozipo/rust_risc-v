@@ -420,3 +420,213 @@ fn lhu_to_x0_does_not_write() {
     assert_eq!(cpu.reg[0], 0);
     assert_eq!(cpu.pc, 4);
 }
+
+/* -------------------- LB tests -------------------- */
+
+/// LB instruction fetch
+#[test]
+fn lb_instruction_fetch() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LB x5, 0(x1)
+    // funct3 = 000, opcode = 0000011
+    let lb_instr: Word = 0b000000000000_00001_000_00101_0000011;
+    mem.store_word(0x0, lb_instr);
+
+    let instruction = cpu.fetch_instruction(&mem);
+    assert_eq!(instruction, lb_instr);
+}
+
+/// LB basic positive load
+#[test]
+fn lb_basic_load_positive() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LB x6, 0(x2)
+    let lb_instr: Word = 0b000000000000_00010_000_00110_0000011;
+    mem.store_word(0x0, lb_instr);
+
+    cpu.reg[2] = 0x100;
+    mem[0x100] = 0x12;
+
+    cpu.clock_cycle(&mem);
+
+    // 0x12 sign-extends to 0x0000_0012
+    assert_eq!(cpu.reg[6], 0x0000_0012);
+    assert_eq!(cpu.pc, 4);
+}
+
+/// LB loads a negative byte and sign-extends
+#[test]
+fn lb_sign_extension_negative() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LB x7, 0(x3)
+    let lb_instr: Word = 0b000000000000_00011_000_00111_0000011;
+    mem.store_word(0x0, lb_instr);
+
+    cpu.reg[3] = 0x200;
+    mem[0x200] = 0xF2; // negative 8-bit value
+
+    cpu.clock_cycle(&mem);
+
+    // Sign-extended: 0xFFFF_FFF2
+    assert_eq!(cpu.reg[7], 0xFFFF_FFF2);
+    assert_eq!(cpu.pc, 4);
+}
+
+/// LB with positive offset
+#[test]
+fn lb_with_positive_offset() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LB x8, 3(x4)
+    let lb_instr: Word = 0b000000000011_00100_000_01000_0000011;
+    mem.store_word(0x0, lb_instr);
+
+    cpu.reg[4] = 0x300;
+    mem[0x303] = 0x7F;
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[8], 0x0000_007F);
+    assert_eq!(cpu.pc, 4);
+}
+
+/// LB with negative offset
+#[test]
+fn lb_with_negative_offset() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LB x9, -1(x5)
+    let lb_instr: Word = 0b111111111111_00101_000_01001_0000011;
+    mem.store_word(0x0, lb_instr);
+
+    cpu.reg[5] = 0x400;
+    mem[0x3FF] = 0x80; // negative 8-bit value (-128)
+
+    cpu.clock_cycle(&mem);
+
+    // Sign-extended: 0xFFFF_FF80
+    assert_eq!(cpu.reg[9], 0xFFFF_FF80);
+    assert_eq!(cpu.pc, 4);
+}
+
+/// LB destination is x0 → should not write
+#[test]
+fn lb_to_x0_does_not_write() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LB x0, 0(x6)
+    let lb_instr: Word = 0b000000000000_00110_000_00000_0000011;
+    mem.store_word(0x0, lb_instr);
+
+    cpu.reg[6] = 0x500;
+    mem[0x500] = 0xAB;
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[0], 0);
+    assert_eq!(cpu.pc, 4);
+}
+
+/* -------------------- LBU tests -------------------- */
+
+/// LBU instruction fetch
+#[test]
+fn lbu_instruction_fetch() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LBU x5, 0(x1)
+    // funct3 = 100, opcode = 0000011
+    let lbu_instr: Word = 0b000000000000_00001_100_00101_0000011;
+    mem.store_word(0x0, lbu_instr);
+
+    let instruction = cpu.fetch_instruction(&mem);
+    assert_eq!(instruction, lbu_instr);
+}
+
+/// LBU basic positive load
+#[test]
+fn lbu_basic_load_positive() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LBU x6, 0(x2)
+    let lbu_instr: Word = 0b000000000000_00010_100_00110_0000011;
+    mem.store_word(0x0, lbu_instr);
+
+    cpu.reg[2] = 0x600;
+    mem[0x600] = 0x12;
+
+    cpu.clock_cycle(&mem);
+
+    // Zero-extended
+    assert_eq!(cpu.reg[6], 0x0000_0012);
+    assert_eq!(cpu.pc, 4);
+}
+
+/// LBU loads a negative byte and zero-extends
+#[test]
+fn lbu_zero_extension_from_negative() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LBU x7, 0(x3)
+    let lbu_instr: Word = 0b000000000000_00011_100_00111_0000011;
+    mem.store_word(0x0, lbu_instr);
+
+    cpu.reg[3] = 0x700;
+    mem[0x700] = 0xF2; // 0xF2 = -14 signed
+
+    cpu.clock_cycle(&mem);
+
+    // Zero-extended → 0x0000_00F2
+    assert_eq!(cpu.reg[7], 0x0000_00F2);
+    assert_eq!(cpu.pc, 4);
+}
+
+/// LBU with positive offset
+#[test]
+fn lbu_with_positive_offset() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LBU x8, 5(x4)
+    let lbu_instr: Word = 0b000000000101_00100_100_01000_0000011;
+    mem.store_word(0x0, lbu_instr);
+
+    cpu.reg[4] = 0x800;
+    mem[0x805] = 0xA5;
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[8], 0x0000_00A5);
+    assert_eq!(cpu.pc, 4);
+}
+
+/// LBU destination is x0 → should not write
+#[test]
+fn lbu_to_x0_does_not_write() {
+    let mut cpu: RISCV = RISCV::reset();
+    let mut mem: Memory = Memory::new();
+
+    // LBU x0, 0(x6)
+    let lbu_instr: Word = 0b000000000000_00110_100_00000_0000011;
+    mem.store_word(0x0, lbu_instr);
+
+    cpu.reg[6] = 0xA00;
+    mem[0xA00] = 0x99;
+
+    cpu.clock_cycle(&mem);
+
+    assert_eq!(cpu.reg[0], 0);
+    assert_eq!(cpu.pc, 4);
+}

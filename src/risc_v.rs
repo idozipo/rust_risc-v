@@ -297,6 +297,8 @@ pub enum Instruction {
     LW { offset: i32, rs1: usize, rd: usize },
     LH { offset: i32, rs1: usize, rd: usize },
     LHU { offset: i32, rs1: usize, rd: usize },
+    LB { offset: i32, rs1: usize, rd: usize },
+    LBU { offset: i32, rs1: usize, rd: usize },
     // TODO: implement these as we go along
 }
 
@@ -344,6 +346,8 @@ impl Instruction {
     const LW_FUNCT3: usize = 0b010;
     const LH_FUNCT3: usize = 0b001;
     const LHU_FUNCT3: usize = 0b101;
+    const LB_FUNCT3: usize = 0b000;
+    const LBU_FUNCT3: usize = 0b100;
 
     const OPIMM_BITS: u32 = 12;
     const JAL_BITS: u32 = 21;
@@ -434,6 +438,12 @@ impl Instruction {
                 } else if opcode == OPCODE::LOAD && funct3 == Instruction::LHU_FUNCT3 {
                     let offset: i32 = sign_extend_u32(imm, Instruction::LOAD_BITS);
                     Instruction::LHU { offset, rs1, rd }
+                } else if opcode == OPCODE::LOAD && funct3 == Instruction::LB_FUNCT3 {
+                    let offset: i32 = sign_extend_u32(imm, Instruction::LOAD_BITS);
+                    Instruction::LB { offset, rs1, rd }
+                } else if opcode == OPCODE::LOAD && funct3 == Instruction::LBU_FUNCT3 {
+                    let offset: i32 = sign_extend_u32(imm, Instruction::LOAD_BITS);
+                    Instruction::LBU { offset, rs1, rd }
                 } else {
                     panic!("unrecognized IType instruction")
                 }
@@ -579,6 +589,14 @@ impl RISCV {
         RISCV {
             reg: [0; XLEN], // Resets registers to 0x00000
             pc: 0,          // Start executing code from 0x00000
+            current_instruction: 0,
+        }
+    }
+
+    pub fn new_() -> Self {
+        RISCV {
+            reg: [0; XLEN], // Resets registers to 0x00000
+            pc: 0x1000,     // Start executing code from 0x1000
             current_instruction: 0,
         }
     }
@@ -832,6 +850,20 @@ impl RISCV {
                 let loaded_halfword: HalfWord = mem.fetch_halfword(effective_address as usize);
                 if rd != 0 {
                     self.reg[rd] = loaded_halfword as u32;
+                }
+            }
+            Instruction::LB { offset, rs1, rd } => {
+                let effective_address: Word = self.reg[rs1].wrapping_add_signed(offset);
+                let loaded_byte: Byte = mem[effective_address as usize];
+                if rd != 0 {
+                    self.reg[rd] = sign_extend_u32(loaded_byte as usize, 8) as u32;
+                }
+            }
+            Instruction::LBU { offset, rs1, rd } => {
+                let effective_address: Word = self.reg[rs1].wrapping_add_signed(offset);
+                let loaded_byte: Byte = mem[effective_address as usize];
+                if rd != 0 {
+                    self.reg[rd] = loaded_byte as u32;
                 }
             }
         };
